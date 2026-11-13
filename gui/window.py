@@ -89,6 +89,7 @@ from gui.providers_panel import (
 from PyQt6.QtWidgets import QGridLayout
 
 from gui.style import DISPLAY_CSS, btn_css, hud_font, px_font, scroll_css
+from gui.location_map import LocationPanel
 from gui.widgets import (ArcLogo, CommandFrame, DataRow, HeaderBar, HoloPanel, IconButton,
                          PanelText, RingGauge, RoutineRow, Sparkline, StateChip, StatusStrip,
                          TaskRow)
@@ -1367,7 +1368,7 @@ class MainWindow(QMainWindow):
 
         # Background tasks (core/tasks). Read from the engine every two seconds —
         # an in-memory list, no disk — and hidden rows cost nothing to paint.
-        self._tasks_panel = HoloPanel("TASKS", "")
+        self._tasks_panel = HoloPanel("KONUM", "")
         rows_box = QWidget()
         rows_box.setStyleSheet("background: transparent;")
         rows_lay = QVBoxLayout(rows_box)
@@ -1435,9 +1436,12 @@ class MainWindow(QMainWindow):
         self._tasks_stack.setStyleSheet("background: transparent;")
         self._tasks_stack.addWidget(scroll)
         self._tasks_stack.addWidget(r_scroll)
+        self._location_panel = LocationPanel()
+        self._tasks_stack.addWidget(self._location_panel)
+        self._tasks_stack.setCurrentIndex(2)
         self._tasks_panel.body.addWidget(self._tasks_stack)
 
-        self._panel_switch = QPushButton("ROUTINES")
+        self._panel_switch = QPushButton("TASKS")
         self._panel_switch.setFixedSize(76, 20)
         self._panel_switch.setFont(px_font(9, QFont.Weight.DemiBold))
         self._panel_switch.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -1453,10 +1457,11 @@ class MainWindow(QMainWindow):
         return w
 
     def _flip_tasks_panel(self) -> None:
-        to_routines = self._tasks_stack.currentIndex() == 0
-        self._tasks_stack.setCurrentIndex(1 if to_routines else 0)
-        self._tasks_panel.set_title("ROUTINES" if to_routines else "TASKS")
-        self._panel_switch.setText("TASKS" if to_routines else "ROUTINES")
+        index = (self._tasks_stack.currentIndex() + 1) % 3
+        self._tasks_stack.setCurrentIndex(index)
+        self._tasks_panel.set_title(("TASKS", "ROUTINES", "KONUM")[index])
+        self._panel_switch.setText(("ROUTINES", "HARİTA", "TASKS")[index])
+        self._tasks_panel.set_code("")
         self._refresh_tasks()
 
     def _refresh_routines(self) -> None:
@@ -1538,6 +1543,8 @@ class MainWindow(QMainWindow):
         self._show_content("ROUTINE", "\n".join(lines)[:4000])
 
     def _refresh_tasks(self) -> None:
+        if getattr(self, "_tasks_stack", None) is not None and self._tasks_stack.currentIndex() == 2:
+            return
         if getattr(self, "_tasks_stack", None) is not None and self._tasks_stack.currentIndex() == 1:
             self._refresh_routines()
             return
