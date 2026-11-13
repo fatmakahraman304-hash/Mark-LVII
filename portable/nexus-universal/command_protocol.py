@@ -47,7 +47,14 @@ class Command:
         if len(raw.encode("utf-8") if isinstance(raw, str) else raw) > MAX_BYTES:
             raise CommandError("Command too large")
         try:
-            obj = json.loads(raw)
+            def unique_pairs(pairs):
+                result = {}
+                for key, value in pairs:
+                    if key in result:
+                        raise CommandError("Duplicate JSON field")
+                    result[key] = value
+                return result
+            obj = json.loads(raw, object_pairs_hook=unique_pairs)
             if not isinstance(obj, dict) or set(obj) != set(cls.__dataclass_fields__):
                 raise CommandError("Unexpected command fields")
             return cls(**obj).validate()
@@ -61,13 +68,13 @@ class Command:
             raise CommandError("Invalid command ID")
         if not isinstance(self.device_id, str) or not ID_RE.fullmatch(self.device_id):
             raise CommandError("Invalid device ID")
-        if self.action not in ACTIONS:
+        if not isinstance(self.action, str) or self.action not in ACTIONS:
             raise CommandError("Action not allowlisted")
         if type(self.issued_at) is not int or type(self.expires_at) is not int:
             raise CommandError("Invalid timestamps")
         if self.expires_at <= self.issued_at or self.expires_at - self.issued_at > 300:
             raise CommandError("Invalid expiry")
-        if not isinstance(self.params, dict):
+        if type(self.params) is not dict:
             raise CommandError("Invalid params")
         expected = {"media.volume": {"level"}, "display.open_url": {"url"}}
         if set(self.params) != expected.get(self.action, set()):
@@ -89,13 +96,17 @@ class Command:
                     raise CommandError("Only HTTPS URLs without credentials allowed")
             except ValueError as exc:
                 raise CommandError("Invalid URL") from exc
-        if len(json.dumps(asdict(self), ensure_ascii=False).encode("utf-8")) > MAX_BYTES:
+        try:
+            encoded = json.dumps(asdict(self), ensure_ascii=False, allow_nan=False).encode("utf-8")
+        except (TypeError, ValueError, UnicodeError) as exc:
+            raise CommandError("Invalid command encoding") from exc
+        if len(encoded) > MAX_BYTES:
             raise CommandError("Command too large")
         return self
 
     def is_expired(self, now: int | None = None) -> bool:
         now = int(time.time()) if now is None else now
-        return now > self.expires_at or now < self.issued_at - 30
+        return now >= self.expires_at or now < self.issued_at - 30
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), separators=(",", ":"), ensure_ascii=False)
