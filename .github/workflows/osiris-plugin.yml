@@ -1,7 +1,7 @@
 name: OSIRIS voice bridge tests
 on:
   push:
-    branches: [feature/osiris-world-command]
+    branches: [main, feature/osiris-world-command]
   pull_request:
     paths: ["plugins/osiris*.py", "gui/**", "ui.py", "requirements.txt", "integrations/osiris/**", "tools/*osiris.py", "tests/test_osiris*", "tests/test_location_map.py", ".github/workflows/osiris-plugin.yml"]
 permissions:

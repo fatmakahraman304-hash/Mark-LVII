@@ -114,8 +114,9 @@ Yerel test sayfası gerçek WebGL küresinin yerine geçmez. Başlangıç sağl�
 kontrolü bütün veri kaynaklarının hazır olduğunu göstermez. Aşama 1–3 tamamen
 bitmiş sayılmaz.
 
-Ana dal kabulü: Gerçek Windows ses/ekran kabulü ve kalan yerel servis
-senaryoları doğrulanmadan bu geliştirme ana dala aktarılmaz.
+Ana dala aktarım kullanıcı talebiyle yapılır. Bu aktarım, gerçek Windows
+ses/ekran kabulünün ve kalan yerel servis senaryolarının tamamlandığı anlamına
+gelmez; bu testler nihai sürüm kabulü için beklemektedir.
 
 ## Bu geliştirmedeki test kaydı
 

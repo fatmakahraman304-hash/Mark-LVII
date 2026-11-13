@@ -7,8 +7,9 @@ yeniden açın; çalışan ses oturumu zorla kesilmez.
 
 - Git kurulumu mevcut dalı takip eder; yalnızca ileri yönlü birleştirme yapar.
   Yerel kod değişikliklerinde durur. Eski sürüm `jarvis-backup/` dalında tutulur.
-- ZIP kurulumu `update_channel.json` içindeki dalı takip eder. Bu geliştirme
-  sürümünün kanalı `feature/osiris-world-command` dalıdır; ana sürüme geçiş yapmaz.
+- ZIP kurulumu `update_channel.json` içindeki dalı takip eder. Yeni ana sürüm ZIP
+  kurulumları `main` dalını takip eder. Önceden güncellenmiş ZIP kurulumları
+  kayıtlı kanallarını, Git kurulumları mevcut dallarını korur.
 - ZIP kurulumu değişen dosyaları `.jarvis-backups/` içine yedekler. Yazma hatasında
   değişiklikleri geri alır. Sonraki güncellemelerde yerel kod değişikliklerini korur.
 - Anahtarlar, ayarlar, hafıza verileri, günlükler ve özel dosyalar korunur.
