@@ -53,6 +53,24 @@ Eklenti **kendiliğinden** OSIRIS sunucusu kurmaz veya başlatmaz. Yalnızca
 resmi HTTPS sitesi ve `localhost/127.0.0.1/::1` loopback adreslerine izin verir;
 harici/IP adresi veya kullanıcının keyfi URL'si kabul edilmez.
 
+## Sesli durum sorguları ve deprem analizi
+
+`plugins/osiris_intel.py` modülü OSIRIS'in herkese açık **yalnızca-okuma**
+`/api/stats` ve `/api/earthquakes` uçlarını kullanır. Örnek:
+
+- "Jarvis, OSIRIS'teki toplam kayıt sayılarını söyle."
+- "Jarvis, son 24 saatteki son beş depremi göster."
+- "Jarvis, son 24 saatteki en güçlü depremleri sırala."
+
+Sonuçlar `show_content` ile JARVIS ekranında kaynak bağlantısı ve sunucunun
+tarih damgasıyla gösterilir; sesli yanıt kısa tutulur. Kaynak kayıtları
+gerçek dünyadaki nesne sayısıyla eşit değildir. OSIRIS ve USGS kaynakları
+gecikmeli olabilir. **Deprem verisi resmi afet uyarısının yerini tutmaz.**
+
+İstekler sadece izinli iki API adresine gider. Yönlendirmeler ve proxy
+kullanımı reddedilir, yanıt 2 MiB ile sınırlıdır ve sonuçlar 90 saniye
+önbelleğe alınır. API başarısızsa JARVIS veri uydurmaz.
+
 ## Kaynaklar ve kısıtlar
 
 - MARK LVII: https://github.com/FatihMakes/Mark-LVII — CC BY-NC 4.0
