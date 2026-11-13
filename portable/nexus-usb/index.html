@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark"><title>JARVIS NEXUS Portable</title>
+<style>
+:root{font-family:system-ui,Arial,sans-serif;color:#e6f7ff;background:#07121f}body{margin:0;padding:24px;max-width:900px;margin:auto}header{display:flex;align-items:center;justify-content:space-between;gap:12px}h1{letter-spacing:.12em;color:#63d8ff}main{display:grid;gap:18px}.panel{border:1px solid #296078;background:#0b2235;border-radius:16px;padding:20px}input,button{font:inherit;border-radius:9px;padding:12px}input{box-sizing:border-box;width:100%;color:white;background:#102d40;border:1px solid #4c8499}button{cursor:pointer;color:#061824;background:#75dcff;border:0;font-weight:700}button:focus,input:focus{outline:3px solid #ffcd6b}button:disabled{opacity:.5;cursor:not-allowed}.muted{color:#a7bfce}.status{font-weight:700}#log{white-space:pre-wrap;overflow-wrap:anywhere}label{display:block;margin-bottom:8px}@media(min-width:700px){main{grid-template-columns:1fr 1fr}.wide{grid-column:1/-1}}
+</style></head><body>
+<header><h1>JARVIS NEXUS</h1><span id="status" class="status" role="status">Hazır değil</span></header>
+<p class="muted">Portable USB • Android 11 / tarayıcı prototipi • Bağlantı ve uyumluluk kontrolü</p>
+<main><section class="panel wide"><h2>JARVIS sunucusuna bağlan</h2>
+<label for="url">Sunucu adresi (HTTPS önerilir)</label><input id="url" type="url" placeholder="https://192.168.1.10:8765" autocomplete="off" spellcheck="false">
+<p class="muted">Adres yalnızca bu oturumda kullanılır. Parola veya API anahtarı girmeyin. USB'deki bu sayfa hiçbir cihaz kontrolü yetkisi istemez.</p>
+<button id="check">Bağlantıyı kontrol et</button> <button id="open" disabled>JARVIS'i aç</button>
+<p id="log" role="status" aria-live="polite">Sunucu adresini girin.</p></section>
+<section class="panel"><h2>Cihaz desteği</h2><p id="caps"></p></section>
+<section class="panel"><h2>Güvenlik</h2><p>Otomatik kurulum, yetki yükseltme, gizli komut çalıştırma ve izinsiz cihaz kontrolü yoktur. Bağlantı kontrolü sadece salt-okunur durum isteği yapar.</p></section>
+</main>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id), state={origin:null};
+const status=(s)=>{$('status').textContent=s;$('log').textContent=s};
+const features=['Tarayıcı: '+navigator.userAgent,'Mikrofon API: '+(!!navigator.mediaDevices?'var':'yok / güvenli bağlam gerekli'),'Konuşma tanıma: '+(!!(window.SpeechRecognition||window.webkitSpeechRecognition)?'olası':'desteklenmiyor')];
+$('caps').textContent=features.join(' • ');
+$('check').addEventListener('click',async()=>{
+state.origin=null;$('open').disabled=true;
+let u;try{u=new URL($('url').value.trim());if(!['https:','http:'].includes(u.protocol)||u.username||u.password||u.pathname!=='/'&&u.pathname!==''||u.search||u.hash)throw Error('Geçerli bir sunucu kök adresi girin.');
+if(u.protocol==='http:'&&!['localhost','127.0.0.1','[::1]'].includes(u.hostname))throw Error('Uzak sunucu için HTTPS gereklidir.');
+}catch(e){status('Adres hatası: '+e.message);return}
+status('Bağlantı kontrol ediliyor…');const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),6000);
+try{const res=await fetch(new URL('/api/state',u.origin),{method:'GET',mode:'cors',credentials:'omit',cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}});
+if(!res.ok)throw Error('HTTP '+res.status);const data=await res.json();if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Geçersiz yanıt');
+state.origin=u.origin;$('open').disabled=false;status('Sunucu yanıt verdi. Açmak için düğmeye basın.');
+}catch(e){status('Bağlantı doğrulanamadı: '+e.message+'. CORS, sertifika veya ağ erişimi engelliyor olabilir.');}
+finally{clearTimeout(timer)}
+});
+$('open').addEventListener('click',()=>{if(state.origin)window.location.assign(state.origin+'/')});
+})();
+</script></body></html>
