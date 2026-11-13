@@ -111,7 +111,7 @@ def btn_css(kind: str = "dim", align: str = "left") -> str:
     kind: "primary" (the main action), "dim" (ordinary), "on" / "off" (a switch),
     "choice" (one of two equal options — neither reads as disabled)."""
     pad = "padding: 0 10px;" if align == "left" else "padding: 0 6px;"
-    base = f"text-align: {align}; {pad} border-radius: 0px;"
+    base = f"text-align: {align}; {pad} border-radius: 6px;"
     if kind == "primary":
         return f"""
             QPushButton {{ background: {C.PRI_GHO}; color: {C.PRI};
@@ -146,3 +146,4 @@ def scroll_css() -> str:
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; border: none; }}
         QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}
         QScrollBar:horizontal {{ height: 0; }}"""
+

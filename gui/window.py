@@ -89,6 +89,7 @@ from gui.providers_panel import (
 from PyQt6.QtWidgets import QGridLayout
 
 from gui.style import DISPLAY_CSS, btn_css, hud_font, px_font, scroll_css
+from gui.location_map import LocationPanel
 from gui.widgets import (ArcLogo, CommandFrame, DataRow, HeaderBar, HoloPanel, IconButton,
                          PanelText, RingGauge, RoutineRow, Sparkline, StateChip, StatusStrip,
                          TaskRow)
@@ -98,6 +99,7 @@ class MainWindow(QMainWindow):
     _log_sig        = pyqtSignal(str)
     _state_sig      = pyqtSignal(str)
     _content_sig    = pyqtSignal(str, str)   # (title, text) — thread-safe content display
+    _osiris_command_sig = pyqtSignal(object)
     _osiris_sig     = pyqtSignal(str)        # map URL — worker thread -> Qt UI thread
     _codejob_sig    = pyqtSignal(object)     # dev_agent job state — live coding panel
     _reconfig_sig   = pyqtSignal()           # trigger setup overlay from any thread
@@ -135,13 +137,12 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle(f"{_display} — {APP_VERSION}")
         self.setMinimumSize(_MIN_W, _MIN_H)
-        self.resize(_DEFAULT_W, _DEFAULT_H)
-
-        screen = QApplication.primaryScreen().availableGeometry()
-        self.move(
-            (screen.width()  - _DEFAULT_W) // 2,
-            (screen.height() - _DEFAULT_H) // 2,
-        )
+        # Fit 1080p work areas and scaled Windows desktops.
+        screen = self.screen().availableGeometry()
+        self.resize(min(_DEFAULT_W, max(_MIN_W, screen.width() - 48)),
+                    min(_DEFAULT_H, max(_MIN_H, screen.height() - 64)))
+        self.move(screen.x() + (screen.width() - self.width()) // 2,
+                  screen.y() + (screen.height() - self.height()) // 2)
 
         self.on_text_command   = None
         self.on_remote_clicked = None   # callable: () -> (url, key) | None
@@ -172,8 +173,8 @@ class MainWindow(QMainWindow):
         root.addWidget(self._build_header())
 
         body = QHBoxLayout()
-        body.setContentsMargins(10, 10, 10, 10)
-        body.setSpacing(10)
+        body.setContentsMargins(18, 18, 18, 18)
+        body.setSpacing(16)
 
         self._left_panel = self._build_left_panel()
         body.addWidget(self._left_panel, stretch=0)
@@ -399,6 +400,7 @@ class MainWindow(QMainWindow):
         self._state_sig.connect(self._apply_state)
         self._content_sig.connect(self._show_content)
         self._osiris_sig.connect(self._open_osiris)
+        self._osiris_command_sig.connect(self._control_osiris)
         self._codejob_sig.connect(self._show_code_job)
         self._reconfig_sig.connect(self._show_setup)
         self._camera_sig.connect(self._show_camera_frame)
@@ -440,17 +442,39 @@ class MainWindow(QMainWindow):
         sc_intr = QShortcut(QKeySequence("Escape"), self)
         sc_intr.activated.connect(self._do_interrupt)
         sc_world = QShortcut(QKeySequence("Ctrl+Shift+O"), self)
-        sc_world.activated.connect(lambda: self._open_osiris("https://osirisai.live/"))
+        sc_world.activated.connect(self._open_default_osiris)
 
     def _open_osiris(self, url: str) -> None:
         """Qt-thread slot: keep a single OSIRIS window and reuse it for commands."""
         from gui.osiris_window import OsirisWindow
         if self._osiris_window is None:
             self._osiris_window = OsirisWindow(self)
+            self._osiris_window.result.connect(self._osiris_result)
         if self._osiris_window.navigate(url):
             self._osiris_window.show()
             self._osiris_window.raise_()
             self._osiris_window.activateWindow()
+
+    def _open_default_osiris(self) -> None:
+        from plugins.osiris_world import build_url, DEFAULT_LAYERS
+        try:
+            self._open_osiris(build_url(DEFAULT_LAYERS))
+        except ValueError as exc:
+            self._log.append_log("OSIRIS: " + str(exc))
+
+    def _control_osiris(self, command: dict) -> None:
+        if self._osiris_window is None:
+            self._open_default_osiris()
+        if self._osiris_window is not None:
+            accepted = self._osiris_window.command(command)
+            if not accepted:
+                self._log.append_log("OSIRIS: Harita komutu kabul edilmedi.")
+
+    def _osiris_result(self, result: dict) -> None:
+        # Results are map state confirmations, never claims about live data accuracy.
+        status = result.get("status", "unverified")
+        self._log.append_log("OSIRIS [" + status + "]: " +
+                             json.dumps(result, ensure_ascii=False)[:1800])
 
     def _show_camera_frame(self, img_bytes: bytes):
         """Slot — display camera preview overlay (main thread)."""
@@ -1230,10 +1254,10 @@ class MainWindow(QMainWindow):
 
     def _build_header(self) -> QWidget:
         w = HeaderBar()
-        w.setFixedHeight(58)
+        w.setFixedHeight(78)
         self._header = w
         lay = QHBoxLayout(w)
-        lay.setContentsMargins(14, 6, 14, 8)
+        lay.setContentsMargins(22, 12, 22, 12)
         lay.setSpacing(10)
         lay.addWidget(ArcLogo())
 
@@ -1241,11 +1265,11 @@ class MainWindow(QMainWindow):
         name_col.setSpacing(0)
         display = self._assistant_name.upper()
         self._title_lbl = QLabel(display)
-        self._title_lbl.setFont(px_font(19, QFont.Weight.Light, spacing=3.5))
+        self._title_lbl.setFont(px_font(24, QFont.Weight.Light, spacing=4.5))
         self._title_lbl.setStyleSheet(f"color: {C.WHITE}; background: transparent;")
         self._title_lbl.setToolTip(self._subtitle(display))
         name_col.addWidget(self._title_lbl)
-        self._sub_lbl = QLabel(f"{APP_VERSION}  ·  PERSONAL AI SYSTEM")
+        self._sub_lbl = QLabel(f"MURAT KAHRAMAN  /  PERSONAL EDITION  ·  {APP_VERSION}")
         self._sub_lbl.setFont(px_font(9, QFont.Weight.DemiBold, spacing=2.2))
         self._sub_lbl.setStyleSheet(f"color: {C.PRI_DIM}; background: transparent;")
         name_col.addWidget(self._sub_lbl)
@@ -1306,9 +1330,9 @@ class MainWindow(QMainWindow):
         the space a larger window was opened for."""
         W = self.width()
         if hasattr(self, "_left_panel"):
-            self._left_panel.setFixedWidth(max(190, min(250, int(W * 0.19))))
+            self._left_panel.setFixedWidth(max(190, min(300, int(W * 0.18))))
         if hasattr(self, "_right_panel"):
-            self._right_panel.setFixedWidth(max(290, min(400, int(W * 0.27))))
+            self._right_panel.setFixedWidth(max(290, min(460, int(W * 0.27))))
         # The network graph is the first thing to give up its space: below this
         # height the gauges and the task list need it more, and the rate itself
         # is still in STATUS.
@@ -1383,7 +1407,7 @@ class MainWindow(QMainWindow):
 
         # Background tasks (core/tasks). Read from the engine every two seconds —
         # an in-memory list, no disk — and hidden rows cost nothing to paint.
-        self._tasks_panel = HoloPanel("TASKS", "")
+        self._tasks_panel = HoloPanel("KONUM", "")
         rows_box = QWidget()
         rows_box.setStyleSheet("background: transparent;")
         rows_lay = QVBoxLayout(rows_box)
@@ -1451,9 +1475,12 @@ class MainWindow(QMainWindow):
         self._tasks_stack.setStyleSheet("background: transparent;")
         self._tasks_stack.addWidget(scroll)
         self._tasks_stack.addWidget(r_scroll)
+        self._location_panel = LocationPanel()
+        self._tasks_stack.addWidget(self._location_panel)
+        self._tasks_stack.setCurrentIndex(2)
         self._tasks_panel.body.addWidget(self._tasks_stack)
 
-        self._panel_switch = QPushButton("ROUTINES")
+        self._panel_switch = QPushButton("TASKS")
         self._panel_switch.setFixedSize(76, 20)
         self._panel_switch.setFont(px_font(9, QFont.Weight.DemiBold))
         self._panel_switch.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -1469,10 +1496,11 @@ class MainWindow(QMainWindow):
         return w
 
     def _flip_tasks_panel(self) -> None:
-        to_routines = self._tasks_stack.currentIndex() == 0
-        self._tasks_stack.setCurrentIndex(1 if to_routines else 0)
-        self._tasks_panel.set_title("ROUTINES" if to_routines else "TASKS")
-        self._panel_switch.setText("TASKS" if to_routines else "ROUTINES")
+        index = (self._tasks_stack.currentIndex() + 1) % 3
+        self._tasks_stack.setCurrentIndex(index)
+        self._tasks_panel.set_title(("TASKS", "ROUTINES", "KONUM")[index])
+        self._panel_switch.setText(("ROUTINES", "HARİTA", "TASKS")[index])
+        self._tasks_panel.set_code("")
         self._refresh_tasks()
 
     def _refresh_routines(self) -> None:
@@ -1554,6 +1582,8 @@ class MainWindow(QMainWindow):
         self._show_content("ROUTINE", "\n".join(lines)[:4000])
 
     def _refresh_tasks(self) -> None:
+        if getattr(self, "_tasks_stack", None) is not None and self._tasks_stack.currentIndex() == 2:
+            return
         if getattr(self, "_tasks_stack", None) is not None and self._tasks_stack.currentIndex() == 1:
             self._refresh_routines()
             return
@@ -2279,7 +2309,7 @@ class MainWindow(QMainWindow):
     def _build_footer(self) -> QWidget:
         self._status_strip = StatusStrip()
         self._status_strip.set_right(
-            "F4 MUTE   ·   F11 FULLSCREEN   ·   ESC INTERRUPT   ·   BY FATIHMAKES")
+            "F4 MUTE   ·   F11 FULLSCREEN   ·   ESC INTERRUPT")
         self._refresh_status_strip()
         return self._status_strip
 
@@ -2971,5 +3001,6 @@ class MainWindow(QMainWindow):
         self._apply_state("LISTENING")
         self._assistant_name = _read_full_config().get("assistant_name", "JARVIS") or "JARVIS"
         self._log.append_log(f"SYS: Initialised. OS={os_name.upper()}. {self._assistant_name} online.")
+
 
 

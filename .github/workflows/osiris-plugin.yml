@@ -1,46 +1,40 @@
 name: OSIRIS voice bridge tests
-
 on:
   push:
-    branches:
-      - feature/osiris-world-command
+    branches: [feature/osiris-world-command]
   pull_request:
-    paths:
-      - "plugins/osiris_world.py"
-      - "plugins/osiris_intel.py"
-      - "tests/test_osiris_intel.py"
-      - "gui/osiris_window.py"
-      - "gui/window.py"
-      - "ui.py"
-      - "requirements.txt"
-      - "tests/test_osiris_world.py"
-      - ".github/workflows/osiris-plugin.yml"
-
+    paths: ["plugins/osiris*.py", "gui/**", "ui.py", "requirements.txt", "integrations/osiris/**", "tools/*osiris.py", "tests/test_osiris*", "tests/test_location_map.py", ".github/workflows/osiris-plugin.yml"]
 permissions:
   contents: read
-
 jobs:
-  test-plugin:
+  bridge:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    env:
+      QT_QPA_PLATFORM: offscreen
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - name: Syntax check
-        run: python -m py_compile plugins/osiris_world.py plugins/osiris_intel.py gui/osiris_window.py gui/window.py ui.py tests/test_osiris_world.py tests/test_osiris_intel.py
-      - name: Unit tests — OSIRIS map bridge (browser mocked)
-        run: python -m unittest discover -s tests -p 'test_osiris_world.py' -v
-      - name: Unit tests — OSIRIS read-only data (network mocked)
-        run: python -m unittest discover -s tests -p 'test_osiris_intel.py' -v
-      - name: Windows Qt WebEngine import and URL safety smoke test
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          python -m pip install "PyQt6>=6.6,<7" "PyQt6-WebEngine>=6.6,<7"
-          python -c "from PyQt6.QtWebEngineWidgets import QWebEngineView; from gui.osiris_window import _allowed_url; assert _allowed_url('https://osirisai.live/?layers=earthquakes'); assert not _allowed_url('https://untrusted.example/'); print('Qt WebEngine import OK')"
-
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: python -m pip install "PyQt6>=6.6,<7" "PyQt6-WebEngine>=6.6,<7" psutil
+      - run: python -m compileall -q gui plugins tools tests ui.py
+      - name: Voice command routing
+        run: python -m unittest discover -s tests -p test_osiris_world.py -v
+      - name: Read-only information
+        run: python -m unittest discover -s tests -p test_osiris_intel.py -v
+      - name: Local service lifecycle
+        run: python -m unittest discover -s tests -p test_osiris_service.py -v
+      - name: JavaScript adapter contracts
+        run: node --test tests/test_osiris_bridge.mjs
+      - name: Qt same-document transport (offline fixture, not live globe)
+        run: python -m unittest discover -s tests -p test_osiris_qt.py -v
+      - name: Personal city map regression
+        run: python -m unittest discover -s tests -p test_location_map.py -v

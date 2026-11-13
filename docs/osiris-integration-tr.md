@@ -1,107 +1,79 @@
-# MARK LVII + OSIRIS — Dünya Komuta Merkezi (Aşama 1)
+# JARVIS + OSIRIS — geliştirme dalı
 
-Bu klasördeki `plugins/osiris_world.py`, JARVIS'in **sesli komutlarıyla**
-OSIRIS'in resmi dünya haritasını JARVIS'in isteğe bağlı Qt penceresinde\n(veya sistem tarayıcısında) açar ve **URL tabanlı** harita
-katmanlarını değiştirir. Orijinal MARK LVII arayüzünü, Gemini oturumunu veya
-ses altyapısını değiştirmez. Python bağımlılığı eklemez.
+Bu sürüm kişisel 1080p arayüzünü, Murat Kahraman başlığını ve sol alttaki
+şehir haritasını korur. OSIRIS geliştirmesi feature/osiris-world-command
+dalındadır; gerçek Windows sesli kullanım kabulü tamamlanmadan nihai sürüm değildir.
 
-> Durum: İlk entegrasyon / tarayıcı köprüsü. Gömülü Qt haritası, mevcut
-> sekmeyi gerçek zamanlı değiştirme, canlı veri okumak ve OSIRIS'i Windows'ta
-> otomatik başlatmak **henüz yok**. Sesli komuttan sonra yeni sekme açılabilir.
+## Mevcut özellikler
 
-## Kullanım
+- Resmi siteyi veya izin verilen loopback adresini Qt penceresinde açma.
+- Hazırlanmış yerel OSIRIS'te sayfayı yeniden yüklemeden katman açma,
+  kapatma, temizleme; şehir arama, yakınlaştırma ve harita durumunu okuma.
+- Komutlar Qt sinyaliyle ana iş parçacığına aktarılır; mikrofonu bekletmez.
+- İlk yanıt yalnızca kuyruğa alındığını söyler. Gerçek harita durumuna göre
+  etkinlik günlüğünde done, failed veya unverified sonucu görünür.
+- done, görünümün doğrulandığını belirtir; veri kaynaklarının güncelliğini kanıtlamaz.
+- QtWebEngine yoksa URL açma tarayıcıya düşer; anlık kontrol bu yolda yoktur.
+- Çevrimiçi osirisai.live sayfasına köprü eklenmez; URL değişimi sayfayı yenileyebilir.
 
-JARVIS yeniden başlatıldığında `plugins/osiris_world.py` otomatik yüklenir.
-Örnekler:
+Örnekler: “OSIRIS'te sadece depremleri göster”, “Katmanları temizle”,
+“OSIRIS'te Gazimağusa'ya git”, “OSIRIS'te yaklaş”, “OSIRIS harita durumunu oku”.
+Ctrl+Shift+O, yapılandırılan yerel adresi de kullanır.
 
-- "Jarvis, OSIRIS dünya haritasını aç."
-- "Jarvis, OSIRIS'te sadece depremleri göster."
-- "Jarvis, uçak ve gemi katmanlarını ekle."
-- "Jarvis, kamera katmanını gizle."
-- "Jarvis, uzay görünümünü aç."
-- "Jarvis, OSIRIS harita katmanlarını temizle."
-- "Jarvis, varsayılan dünya görünümüne dön."
+## Yerel servis hazırlığı
 
-Eklentinin API'si:
+OSIRIS ayrı depoda kalır. Kaynak sürümü fa394afbc49f6eaa43446f7cc321590556cd665b.
+Node.js 20.9+ gerekir. JARVIS bağımlılıkları kurulmuş Python ortamını kullanın.
+JARVIS ve OSIRIS kardeş klasörler olduğunda:
 
-| Mode | Etki |
-| --- | --- |
-| `open` / `reset` | OSIRIS'in varsayılan veri katmanlarını seçer |
-| `show` | Adı verilen katmanları seçime ekler |
-| `hide` | Seçimden kaldırır |
-| `focus` | Yalnızca verilen katmanları seçer |
-| `preset` | `world`, `air`, `sea`, `space`, `cameras`, `disasters`, `weather`, `news` |
-| `clear` | Harita veri katmanlarını sıfırlar |
+    git clone https://github.com/simplifaisoul/osiris.git ../osiris
+    git -C ../osiris checkout fa394afbc49f6eaa43446f7cc321590556cd665b
+    npm --prefix ../osiris ci
+    python tools/prepare_osiris.py ../osiris --build
+    python tools/start_with_osiris.py ../osiris
 
-OSIRIS, harita açılırken `?layers=earthquakes,cctv` biçimini okuyup
-katmanlarını ayarlar. Komutlar aynı tarayıcı sekmesinin durumunu değiştirmez;
-tarayıcı URL'si değiştiğinde farklı bir sekmede açılabilir. JARVIS'in kendi
-seçim hafızası yalnızca çalışan uygulama oturumu boyunca tutulur.
+Hazırlama betiği kaynak sürümünü ve değiştirilen dosyaların içeriklerini
+kontrol eder; farklı kaynağı tahmin ederek değiştirmez. Kendi adapter dosyasını
+ekler, React'in mevcut assistSite arayüzüne bağlar ve yerel salt-okuma HTTP
+profilini kurar. Üretim derlemesi içerik parmak iziyle işaretlenir.
+Eski/işaretsiz derleme başlatılmaz. Kaynak değişirse yeniden --build gerekir.
 
-\n### Qt içinde gömülü harita (isteğe bağlı)\n\nPyQt6-WebEngine kuruluysa JARVIS'in Qt ana iş parçacığında açılan OSIRIS\npenceresi kullanılır. Gerekli değilse / açılmıyorsa uygulama normal tarayıcıyı\nkullanır. Windows'ta bu bağımlılık artık `requirements.txt` tarafından yüklenir.\nGüncellemeyi mevcut kuruluma uygulayan kişi, bağımlılıkları yeniden yüklemek için:\n\n```powershell\ncd C:\\Fatih-JARVIS\n.\\.venv\\Scripts\\python.exe -m pip install PyQt6-WebEngine\n```\n\n**Ctrl+Shift+O**, OSIRIS haritasını doğrudan açar. Gömülü pencereyi kapatmak\nJARVIS sesli oturumunu kapatmaz. Bu PyQt yolu henüz gerçek Windows ekranında\ntest edilmemiştir; eksik bağımlılık durumunda güvenli tarayıcı yedeği vardır.\n\n## Yerel OSIRIS (isteğe bağlı, daha sonra)
+Başlatıcı yalnızca 127.0.0.1 üzerinde çalışır; port doluysa başka servisi
+kapatmaz. Servis hazır olduktan sonra JARVIS'i açar. JARVIS kapanınca kendi
+başlattığı süreçleri sonlandırır; OSIRIS çökerse çalışan JARVIS kapanmaz.
+Log, Windows LOCALAPPDATA altında Jarvis/logs/osiris.log dosyasındadır.
+Linux'ta ~/.local/share/Jarvis/logs/osiris.log kullanılır.
+--check-only servis başlangıcını kontrol edip kapatır.
+Başlatıcı yalnızca doğrulanmış üretim derlemesini kullanır.
 
-Bu ilk aşama varsayılan olarak `https://osirisai.live/` kullanır.
-OSIRIS'i ayrıca yerel kurduktan sonra Windows'ta JARVIS'i başlatmadan önce:
+## Sınırlar
 
-```powershell
-$env:JARVIS_OSIRIS_URL = "http://127.0.0.1:3000/"
-cd C:\Fatih-JARVIS
-.\.venv\Scripts\python.exe main.py
-```
+Köprü yalnızca aynı yerel origin'in ana belgesinde çalışır. Her belge oturumunda
+yeni belirteç, sınırlı komut şeması, 16 bekleyen komut sınırı ve zaman aşımı vardır.
+Web sayfasına Python/shell/dosya erişimi verilmez. Dış origin yönlendirmeleri reddedilir.
 
-Eklenti **kendiliğinden** OSIRIS sunucusu kurmaz veya başlatmaz. Yalnızca
-resmi HTTPS sitesi ve `localhost/127.0.0.1/::1` loopback adreslerine izin verir;
-harici/IP adresi veya kullanıcının keyfi URL'si kabul edilmez.
+Yerel HTTP profili yalnızca belirlenmiş GET/HEAD veri uçlarını açar. RECON,
+SDK ingest, yazma işlemleri ve diğer API'ler kapalıdır. OSIRIS'in bütün bağımsız
+özellikleri bu profilde kullanılabilir değildir. Bazı kaynaklar anahtar,
+internet veya ek servis ister; boş veri başarı olarak sunulmaz.
 
-## Sesli durum sorguları ve deprem analizi
+## Testler
 
-`plugins/osiris_intel.py` modülü OSIRIS'in herkese açık **yalnızca-okuma**
-`/api/stats` ve `/api/earthquakes` uçlarını kullanır. Örnek:
+    python -m unittest discover -s tests -p test_osiris_world.py -v
+    python -m unittest discover -s tests -p test_osiris_intel.py -v
+    node --test tests/test_osiris_bridge.mjs
+    python -m unittest discover -s tests -p test_osiris_qt.py -v
+    python -m unittest discover -s tests -p test_location_map.py -v
 
-- "Jarvis, OSIRIS'teki toplam kayıt sayılarını söyle."
-- "Jarvis, son 24 saatteki son beş depremi göster."
-- "Jarvis, son 24 saatteki en güçlü depremleri sırala."
+Qt testi gerçek QtWebEngine içinde yerel test sayfası kullanır: komutlar boyunca
+tek belge yüklemesi, katman/kamera durumu ve URL sınırını ölçer. Bu, gerçek
+OSIRIS WebGL küresi veya Windows mikrofon testi değildir. GitHub Actions aynı
+testleri Windows/Linux üzerinde çalıştırır.
 
-Sonuçlar `show_content` ile JARVIS ekranında kaynak bağlantısı ve sunucunun
-tarih damgasıyla gösterilir; sesli yanıt kısa tutulur. Kaynak kayıtları
-gerçek dünyadaki nesne sayısıyla eşit değildir. OSIRIS ve USGS kaynakları
-gecikmeli olabilir. **Deprem verisi resmi afet uyarısının yerini tutmaz.**
-
-İstekler sadece izinli iki API adresine gider. Yönlendirmeler ve proxy
-kullanımı reddedilir, yanıt 2 MiB ile sınırlıdır ve sonuçlar 90 saniye
-önbelleğe alınır. API başarısızsa JARVIS veri uydurmaz.
-
-## Kaynaklar ve kısıtlar
+## Kaynak ve lisanslar
 
 - MARK LVII: https://github.com/FatihMakes/Mark-LVII — CC BY-NC 4.0
 - OSIRIS: https://github.com/simplifaisoul/osiris — MIT
-- OSIRIS web sitesi: https://osirisai.live/
 
-OSIRIS'in kaynak kodu projeye kopyalanmaz; yalnızca yayımlanmış katman
-bağlantısı biçimi kullanılır. Veri kaynaklarının çalışması, gecikmesi ve
-lisans koşulları OSIRIS'in sunucusuna ve üçüncü taraf sağlayıcılara bağlıdır.
-Kamera bağlantıları yalnızca halka açık yayınlar içindir. Uydu ve uçuş
-konumları gerçek zamanlı veya eksiksiz olmak zorunda değildir.
-
-Eklenti harita içeriğini **okumaz**. JARVIS veri doğrulaması yapmadan uçak,
-olay veya deprem görüldüğünü iddia etmemelidir. Tarayıcının açma isteğini
-kabul etmesi, sitenin tamamen yüklendiğini kanıtlamaz.
-
-## Test
-
-Proje kökünde:
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -p test_osiris_world.py -v
-```
-
-Testler tarayıcıyı mock'lar; GUI/ses/Gemini/Windows testi yerine geçmez.
-
-## Sonraki geliştirme aşamaları
-
-1. Windows'ta eklentinin sesli model tarafından çağrıldığını doğrula.
-2. Gömülü harita penceresi ve tek sekmede anlık katman kontrolü için
-   güvenli, izinli köprü tasarla.
-3. OSIRIS yerel servis başlatma/sağlık denetimi ve API veri okuma katmanını
-   ayrı PR'larla ekle.
-4. Yetkilendirme, önbellek, hız limiti, kaynak atfı ve Windows GUI testleri.
+Upstream lisans dosyaları korunur. OSIRIS kaynak kodu JARVIS deposuna kopyalanmaz.
+Deprem verisi resmi afet uyarısının yerini tutmaz.

@@ -23,6 +23,7 @@ import psutil
 # Before any Qt import: Qt's video backend prints signed stream URLs otherwise.
 os.environ.setdefault("QT_LOGGING_RULES", "qt.multimedia.*=false")
 
+from PyQt6.QtCore import QCoreApplication, Qt
 from PyQt6.QtWidgets import QApplication
 
 from gui import hud as _gui_hud
@@ -100,6 +101,8 @@ def _apply_ui_scale() -> None:
 class JarvisUI:
     def __init__(self, face_path: str, size=None):
         _apply_ui_scale()
+        if QApplication.instance() is None:
+            QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
         self._app = QApplication.instance() or QApplication(sys.argv)
         self._app.setStyle("Fusion")
         self._win = MainWindow(face_path)
@@ -272,6 +275,10 @@ class JarvisUI:
         Returning does not guarantee that the remote page finished loading.
         """
         self._win._osiris_sig.emit(str(url))
+
+    def control_osiris(self, command: dict) -> None:
+        """Thread-safe; map results are reported asynchronously in the activity log."""
+        self._win._osiris_command_sig.emit(dict(command))
 
     def show_code_job(self, job: dict) -> None:
         """Thread-safe: draw the coding agent's live progress in the panel."""

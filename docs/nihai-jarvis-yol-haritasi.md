@@ -96,12 +96,39 @@ bildirimi ile hangi değişikliğin doğrulandığı anlaşılır.
 - Yalnızca kanıtlanan testler yeşil; başarısız testler kapatılmaz veya
   başarılı gibi gösterilmez.
 
-## Şimdiki gerçek durum
+## Şimdiki gerçek durum — 14 Kasım 2026
 
-Aşama 1'in kodları PR #1 üzerinde. GitHub otomatik testleri çalışır ancak
-**gerçek Windows ses/ekran testi yerine geçmez**. Aşama 2–5 planlıdır,
-uygulandı diye gösterilmeyecektir. Kapsam genişletmek yerine her aşamanın
-bitiş kriterini geçen çalışır sürümler çıkarılacaktır.
+Geliştirme dalı: feature/osiris-world-command. Ana daldaki kişisel arayüz,
+şehir haritası ve alt köşe yazısı değişikliği bu dalda korundu.
 
-**Güvenli kabul kararı:** Ana dala birleşme yalnızca gerçek doğrulamalar,
-lisans/bağımlılık kontrolleri ve açık sınırlamaların belgelenmesi sonrasında.
+| Özellik | Mevcut kanıt | Tamamlanma kapısı |
+|---|---|---|
+| Sesli araç yönlendirme | Python birim testleri | Windows mikrofonundan gerçek araç çağrısı |
+| Yeniden yüklemeden kontrol | JavaScript durum testleri ve QtWebEngine yerel test sayfası | Gerçek OSIRIS küresinde katman, şehir, zoom; belge yükleme sayısı 1 |
+| Yerel servis | Sabit kaynak, üretim derlemesi, loopback başlangıç/sağlık kontrolü | Windows temiz kurulum, port dolu, çökme ve kapanma |
+| Komut sonucu | done/failed/unverified; origin, parametre ve gecikme testleri | Windows sesli kullanımda sonuç bildirimi |
+| Arayüz ve şehir haritası | Ana dal tasarımı korundu; regresyon testleri | Windows ekranında son görsel kontrol |
+| Nihai dağıtım | Tamamlanmadı | Gerçek ses/cihaz, uzun görüşme, paketleme ve geri dönüş |
+
+Yerel test sayfası gerçek WebGL küresinin yerine geçmez. Başlangıç sağlık
+kontrolü bütün veri kaynaklarının hazır olduğunu göstermez. Aşama 1–3 tamamen
+bitmiş sayılmaz.
+
+Ana dal kabulü: Gerçek Windows ses/ekran kabulü ve kalan yerel servis
+senaryoları doğrulanmadan bu geliştirme ana dala aktarılmaz.
+
+## Bu geliştirmedeki test kaydı
+
+- Python: 12 araç yönlendirme, 8 veri okuma, 5 servis yaşam döngüsü,
+  4 şehir haritası ve 2 gerçek QtWebEngine taşıma/URL testi geçti.
+- Node: 7 köprü sözleşmesi testi geçti.
+- Sabitlenmiş gerçek OSIRIS üretim derlemesi geçti; upstream dinamik
+  dosya tarama uyarıları mevcut, bu çalışma bunları çözmüş sayılmaz.
+- Üretim sunucusu loopback üzerinde açıldı; sağlık yanıtı alındı.
+  Kapalı API için 403 ve yazma isteği için 405 doğrulandı.
+- Gerçek OSIRIS sayfasında depremler katmanını açma ve bütün katmanları
+  kapatma durumları done olarak doğrulandı.
+- Aynı gerçek sayfanın zoom testi WebGL2 GPUInitializationError nedeniyle
+  unverified/state_timeout verdi. Bu test GEÇMEDİ. Katman durumu onayı,
+  3D kürenin çizildiği veya kaynak verilerinin eksiksiz olduğu anlamına gelmez.
+- Windows mikrofonu, cihaz geçişi ve gerçek küre üzerinde şehir/zoom kabulü bekliyor.

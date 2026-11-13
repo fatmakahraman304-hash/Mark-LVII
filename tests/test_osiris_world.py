@@ -91,6 +91,27 @@ class OsirisPluginTests(unittest.TestCase):
         self.assertTrue(ui.logs)
         browser.assert_not_called()
 
+    def test_local_control_is_queued_without_claiming_success(self):
+        class UI:
+            def __init__(self): self.commands = []
+            def control_osiris(self, command): self.commands.append(command)
+        ui = UI()
+        os.environ["JARVIS_OSIRIS_URL"] = "http://127.0.0.1:3000/"
+        for params in ({"mode": "locate", "place": "Gazimağusa"},
+                       {"mode": "zoom", "delta": 1}, {"mode": "status"}):
+            self.assertIn("kuyruğa", plugin.run(params, player=ui))
+        self.assertEqual([c["kind"] for c in ui.commands], ["locate", "zoom", "status"])
+        for delta in (float("nan"), True, 4, "1"):
+            plugin.run({"mode": "zoom", "delta": delta}, player=ui)
+        self.assertEqual(len(ui.commands), 3)
+
+    def test_remote_control_refused(self):
+        from unittest.mock import Mock
+        ui = Mock()
+        reply = plugin.run({"mode": "locate", "place": "Gazimağusa"}, player=ui)
+        self.assertIn("yerel OSIRIS", reply)
+        ui.control_osiris.assert_not_called()
+
     @patch("plugins.osiris_world.webbrowser.open", return_value=True)
     def test_invalid_layer_never_opens_browser(self, browser):
         reply = plugin.run({"mode": "show", "layers": "https://evil.test"})

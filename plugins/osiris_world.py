@@ -89,15 +89,19 @@ PLUGIN = {
         "chosen layer configuration. This does NOT read live information or "
         "control arbitrary web tabs; do not claim the map loaded or that any "
         "event or aircraft was observed. Turkish requests are supported. "
-        "Modes: open, show, hide, focus, preset, reset, clear."
+        "Modes: open, show, hide, focus, preset, reset, clear, locate, zoom, status. "
+        "locate/zoom/status require a patched local OSIRIS instance; results arrive "
+        "asynchronously in the activity log. Never claim completion from a queued response."
     ),
     "parameters": {
         "type": "OBJECT",
         "properties": {
             "mode": {"type": "STRING",
-                     "description": "open/show/hide/focus/preset/reset/clear"},
+                     "description": "open/show/hide/focus/preset/reset/clear/locate/zoom/status"},
             "layers": {"type": "STRING",
                        "description": "Comma-separated layer names, e.g. earthquakes, cctv, flights. For show/hide/focus."},
+            "place": {"type": "STRING", "description": "City or place name for locate, e.g. Gazimağusa. Do not invent coordinates."},
+            "delta": {"type": "NUMBER", "description": "Zoom change from -3 to 3; positive zooms in."},
             "preset": {"type": "STRING",
                        "description": "world, air, sea, space, cameras, disasters, weather, news. For preset mode."},
         },
@@ -198,7 +202,28 @@ def run(parameters: dict, player=None, session_memory=None) -> str:
             "odaklan": "focus", "sadece": "focus",
             "gorunum": "preset", "sifirla": "reset",
             "temizle": "clear", "hepsini kapat": "clear",
+            "git": "locate", "konum": "locate", "durum": "status",
+            "yaklas": "zoom", "uzaklas": "zoom",
         }.get(mode, mode)
+        if mode in ("locate", "zoom", "status"):
+            if urlsplit(trusted_base_url()).scheme != "http":
+                return "Bu komut köprü kurulmuş yerel OSIRIS gerektirir; çevrimiçi sürümde anlık kontrol yok."
+            control = getattr(player, "control_osiris", None)
+            if not callable(control):
+                return "Anlık OSIRIS kontrolü için JARVIS harita penceresi gerekli."
+            command = {"kind": mode}
+            if mode == "locate":
+                place = params.get("place")
+                if not isinstance(place, str) or not 1 <= len(place.strip()) <= 120:
+                    return "Gitmek istediğin şehri veya yeri belirt."
+                command["place"] = place.strip()
+            if mode == "zoom":
+                delta = params.get("delta", -1 if _normalize(params.get("mode")) == "uzaklas" else 1)
+                if type(delta) not in (int, float) or not -3 <= delta <= 3:
+                    return "Yakınlaştırma değişimi -3 ile 3 arasında olmalı."
+                command["delta"] = delta
+            control(command)
+            return "OSIRIS komutu kuyruğa alındı; harita sonucu etkinlik günlüğünde doğrulanacak."
         with _lock:
             selected = _prepare(mode, params, set(_selected_layers))
             url = build_url(selected)

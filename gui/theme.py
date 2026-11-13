@@ -88,7 +88,7 @@ def _read_full_config() -> dict:
 APP_VERSION  = "MARK LVII"
 APP_PROTOCOL = APP_VERSION.split()[-1]
 
-_DEFAULT_W, _DEFAULT_H = 980, 700
+_DEFAULT_W, _DEFAULT_H = 1760, 960
 _MIN_W,     _MIN_H     = 820, 580
 _LEFT_W  = 148
 _RIGHT_W = 340
@@ -97,27 +97,27 @@ _OS = platform.system()  # "Windows" | "Darwin" | "Linux"
 
 
 class C:
-    BG        = "#00060a"
-    PANEL     = "#010d14"
-    PANEL2    = "#010f18"
-    BORDER    = "#0d3347"
-    BORDER_B  = "#1a5c7a"
-    BORDER_A  = "#0f4060"
-    PRI       = "#00d4ff"
-    PRI_DIM   = "#007a99"
-    PRI_GHO   = "#001f2e"
-    ACC       = "#ff6b00"
-    ACC2      = "#ffcc00"
-    GREEN     = "#00ff88"
-    GREEN_D   = "#00aa55"
-    RED       = "#ff3355"
-    MUTED_C   = "#ff3366"
-    TEXT      = "#8ffcff"
-    TEXT_DIM  = "#3a8a9a"
-    TEXT_MED  = "#5ab8cc"
-    WHITE     = "#d8f8ff"
-    DARK      = "#000d14"
-    BAR_BG    = "#011520"
+    BG        = "#080e19"
+    PANEL     = "#101b2b"
+    PANEL2    = "#152235"
+    BORDER    = "#263b51"
+    BORDER_B  = "#41657c"
+    BORDER_A  = "#304e66"
+    PRI       = "#83d8ed"
+    PRI_DIM   = "#5590aa"
+    PRI_GHO   = "#172e40"
+    ACC       = "#d7b783"
+    ACC2      = "#efcf98"
+    GREEN     = "#69d6ae"
+    GREEN_D   = "#428d79"
+    RED       = "#f17f8f"
+    MUTED_C   = "#f1839b"
+    TEXT      = "#d3e2ee"
+    TEXT_DIM  = "#8498ad"
+    TEXT_MED  = "#adc3d5"
+    WHITE     = "#f0f5fa"
+    DARK      = "#0b1422"
+    BAR_BG    = "#1b2b40"
 
 
 # Keys tied to the accent colour — status colours (ACC, GREEN, RED…) stay fixed
@@ -205,4 +205,5 @@ def retheme_all_widgets(old: dict[str, str], new: dict[str, str]) -> None:
 
 def qcol(h: str, a: int = 255) -> QColor:
     c = QColor(h); c.setAlpha(a); return c
+
 
