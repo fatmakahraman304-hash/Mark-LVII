@@ -1,0 +1,27 @@
+name: OSIRIS voice bridge tests
+
+on:
+  push:
+    branches:
+      - feature/osiris-world-command
+  pull_request:
+    paths:
+      - "plugins/osiris_world.py"
+      - "tests/test_osiris_world.py"
+      - ".github/workflows/osiris-plugin.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test-plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Syntax check
+        run: python -m py_compile plugins/osiris_world.py tests/test_osiris_world.py
+      - name: Unit tests (browser mocked, no API keys)
+        run: python -m unittest discover -s tests -p 'test_osiris_world.py' -v
