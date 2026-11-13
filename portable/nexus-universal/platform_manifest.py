@@ -25,14 +25,15 @@ def load_manifest(path: str | Path) -> AdapterManifest:
         raise ValueError("Invalid manifest shape")
     if type(raw["schema_version"]) is not int or raw["schema_version"] != 1:
         raise ValueError("Unsupported manifest version")
-    if raw["platform"] not in PLATFORMS:
+    if not isinstance(raw["platform"], str) or raw["platform"] not in PLATFORMS:
         raise ValueError("Unsupported platform")
     adapter_id = raw["adapter_id"]
     if not isinstance(adapter_id, str) or not 1 <= len(adapter_id) <= 80:
         raise ValueError("Invalid adapter ID")
     actions = raw["actions"]
-    if (not isinstance(actions, list) or len(actions) != len(set(actions)) or
-        not all(isinstance(a, str) and a in ACTIONS for a in actions)):
+    if (not isinstance(actions, list) or
+        not all(isinstance(a, str) and a in ACTIONS for a in actions) or
+        len(actions) != len(set(actions))):
         raise ValueError("Invalid action declarations")
     if type(raw["requires_local_consent"]) is not bool:
         raise ValueError("Invalid consent policy")
