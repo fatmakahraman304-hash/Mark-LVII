@@ -62,16 +62,7 @@ public final class MainActivity extends Activity {
         root.addView(status);
         connect.setOnClickListener(v -> {
             try {
-                Uri uri = Uri.parse(address.getText().toString().trim());
-                if (!"https".equalsIgnoreCase(uri.getScheme()) ||
-                    uri.getHost() == null || uri.getUserInfo() != null ||
-                    uri.getQuery() != null || uri.getFragment() != null ||
-                    (uri.getPath() != null && !uri.getPath().isEmpty() && !"/".equals(uri.getPath()))) {
-                    status.setText("Yalnızca geçerli HTTPS sunucu kök adresi kabul edilir.");
-                    return;
-                }
-                trustedOrigin = uri.getScheme().toLowerCase() + "://" + uri.getHost().toLowerCase() +
-                    (uri.getPort() == -1 ? "" : ":" + uri.getPort());
+                trustedOrigin = ServerUrlPolicy.normalize(address.getText().toString());
                 showBrowser();
             } catch (Exception e) {
                 status.setText("Geçersiz adres.");
@@ -80,13 +71,7 @@ public final class MainActivity extends Activity {
     }
 
     private boolean sameOrigin(Uri uri) {
-        if (trustedOrigin == null || uri == null) return false;
-        try {
-            Uri origin = Uri.parse(trustedOrigin);
-            return "https".equalsIgnoreCase(uri.getScheme()) &&
-                origin.getHost().equalsIgnoreCase(uri.getHost()) &&
-                origin.getPort() == uri.getPort();
-        } catch (Exception e) { return false; }
+        return uri != null && ServerUrlPolicy.sameOrigin(trustedOrigin, uri.toString());
     }
 
     private void showBrowser() {
