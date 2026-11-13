@@ -98,6 +98,7 @@ class MainWindow(QMainWindow):
     _log_sig        = pyqtSignal(str)
     _state_sig      = pyqtSignal(str)
     _content_sig    = pyqtSignal(str, str)   # (title, text) — thread-safe content display
+    _osiris_sig     = pyqtSignal(str)        # map URL — worker thread -> Qt UI thread
     _codejob_sig    = pyqtSignal(object)     # dev_agent job state — live coding panel
     _reconfig_sig   = pyqtSignal()           # trigger setup overlay from any thread
     _camera_sig     = pyqtSignal(bytes)      # show camera frame preview (small overlay)
@@ -158,6 +159,7 @@ class MainWindow(QMainWindow):
         self._muted            = False
         self._current_file: str | None = None
         self._remote_overlay: RemoteKeyOverlay | None = None
+        self._osiris_window = None  # lazily created after first voice request
         self._customize_overlay: CustomizeOverlay | None = None
 
         central = QWidget()
@@ -396,6 +398,7 @@ class MainWindow(QMainWindow):
         self._log_sig.connect(self._log.append_log)
         self._state_sig.connect(self._apply_state)
         self._content_sig.connect(self._show_content)
+        self._osiris_sig.connect(self._open_osiris)
         self._codejob_sig.connect(self._show_code_job)
         self._reconfig_sig.connect(self._show_setup)
         self._camera_sig.connect(self._show_camera_frame)
@@ -436,6 +439,18 @@ class MainWindow(QMainWindow):
         sc_full.activated.connect(self._toggle_fullscreen)
         sc_intr = QShortcut(QKeySequence("Escape"), self)
         sc_intr.activated.connect(self._do_interrupt)
+        sc_world = QShortcut(QKeySequence("Ctrl+Shift+O"), self)
+        sc_world.activated.connect(lambda: self._open_osiris("https://osirisai.live/"))
+
+    def _open_osiris(self, url: str) -> None:
+        """Qt-thread slot: keep a single OSIRIS window and reuse it for commands."""
+        from gui.osiris_window import OsirisWindow
+        if self._osiris_window is None:
+            self._osiris_window = OsirisWindow(self)
+        if self._osiris_window.navigate(url):
+            self._osiris_window.show()
+            self._osiris_window.raise_()
+            self._osiris_window.activateWindow()
 
     def _show_camera_frame(self, img_bytes: bytes):
         """Slot — display camera preview overlay (main thread)."""
