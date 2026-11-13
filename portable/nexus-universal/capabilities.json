@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "product": "JARVIS NEXUS UNIVERSAL",
+  "device_profiles": [
+    {
+      "id": "windows",
+      "name": "Windows PC",
+      "usb_launch": "manual",
+      "client": "portable-app-planned",
+      "capabilities": [
+        "browser-ui",
+        "wifi-connection"
+      ],
+      "status": "planned"
+    },
+    {
+      "id": "linux",
+      "name": "Linux PC",
+      "usb_launch": "manual",
+      "client": "browser-client",
+      "capabilities": [
+        "browser-ui",
+        "wifi-connection"
+      ],
+      "status": "prototype"
+    },
+    {
+      "id": "macos",
+      "name": "macOS",
+      "usb_launch": "manual",
+      "client": "signed-app-planned",
+      "capabilities": [
+        "browser-ui",
+        "wifi-connection"
+      ],
+      "status": "planned"
+    },
+    {
+      "id": "android",
+      "name": "Android phone/tablet",
+      "usb_launch": "install-or-manual",
+      "client": "android-apk-source",
+      "capabilities": [
+        "browser-ui",
+        "wifi-connection"
+      ],
+      "status": "source-only"
+    },
+    {
+      "id": "android_tv",
+      "name": "Android TV/projector",
+      "usb_launch": "install-or-manual",
+      "client": "android-apk-source",
+      "capabilities": [
+        "browser-ui",
+        "wifi-connection"
+      ],
+      "status": "source-only"
+    },
+    {
+      "id": "tizen",
+      "name": "Samsung Tizen TV",
+      "usb_launch": "not-supported",
+      "client": "vendor-app-or-api-required",
+      "capabilities": [],
+      "status": "research"
+    },
+    {
+      "id": "webos",
+      "name": "LG webOS TV",
+      "usb_launch": "not-supported",
+      "client": "vendor-app-or-api-required",
+      "capabilities": [],
+      "status": "research"
+    },
+    {
+      "id": "ios",
+      "name": "iOS/iPadOS",
+      "usb_launch": "not-supported",
+      "client": "approved-app-or-web",
+      "capabilities": [],
+      "status": "research"
+    },
+    {
+      "id": "generic_projector",
+      "name": "Media-only projector",
+      "usb_launch": "not-supported",
+      "client": "external-host-required",
+      "capabilities": [],
+      "status": "research"
+    }
+  ]
+}
