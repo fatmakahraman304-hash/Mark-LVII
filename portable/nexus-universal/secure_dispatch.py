@@ -63,14 +63,14 @@ class SecureDispatcher:
             adapter = self.adapters.get(device_id)
             if adapter is None or command.action not in adapter.supported_actions:
                 return deny(ResultCode.UNSUPPORTED, "No approved adapter")
-            if not self.replay.reserve(device_id, command.command_id, command.expires_at):
-                return deny(ResultCode.DENIED, "Command replayed or expired")
             # Read-only status may proceed without an interactive prompt.
             # Every state-changing action requires a separate trusted local approval.
             if command.action != "status.read" and not self.consent.consume(
                 consent_id, device_id, command.command_id, command.action
             ):
                 return deny(ResultCode.DENIED, "Local consent required")
+            if not self.replay.reserve(device_id, command.command_id, command.expires_at):
+                return deny(ResultCode.DENIED, "Command replayed or expired")
             self.audit.append("command.allowed", device_id)
             try:
                 result = adapter.execute(command)
