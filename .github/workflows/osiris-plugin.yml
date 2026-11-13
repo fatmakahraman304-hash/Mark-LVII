@@ -24,6 +24,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Linux Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libopengl0 libnss3 libasound2t64 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libxkbcommon0 libgbm1
       - run: python -m pip install "PyQt6>=6.6,<7" "PyQt6-WebEngine>=6.6,<7" psutil
       - run: python -m compileall -q gui plugins tools tests ui.py
       - name: Voice command routing
