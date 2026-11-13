@@ -96,9 +96,13 @@ from gui.widgets import (ArcLogo, CommandFrame, DataRow, HeaderBar, HoloPanel, I
 
 
 class MainWindow(QMainWindow):
+    _update_progress_sig = pyqtSignal(str)
+    _update_done_sig = pyqtSignal(bool, str)
     _log_sig        = pyqtSignal(str)
     _state_sig      = pyqtSignal(str)
     _content_sig    = pyqtSignal(str, str)   # (title, text) — thread-safe content display
+    _osiris_command_sig = pyqtSignal(object)
+    _osiris_sig     = pyqtSignal(str)        # map URL — worker thread -> Qt UI thread
     _codejob_sig    = pyqtSignal(object)     # dev_agent job state — live coding panel
     _reconfig_sig   = pyqtSignal()           # trigger setup overlay from any thread
     _camera_sig     = pyqtSignal(bytes)      # show camera frame preview (small overlay)
@@ -158,6 +162,7 @@ class MainWindow(QMainWindow):
         self._muted            = False
         self._current_file: str | None = None
         self._remote_overlay: RemoteKeyOverlay | None = None
+        self._osiris_window = None  # lazily created after first voice request
         self._customize_overlay: CustomizeOverlay | None = None
 
         central = QWidget()
@@ -396,6 +401,8 @@ class MainWindow(QMainWindow):
         self._log_sig.connect(self._log.append_log)
         self._state_sig.connect(self._apply_state)
         self._content_sig.connect(self._show_content)
+        self._osiris_sig.connect(self._open_osiris)
+        self._osiris_command_sig.connect(self._control_osiris)
         self._codejob_sig.connect(self._show_code_job)
         self._reconfig_sig.connect(self._show_setup)
         self._camera_sig.connect(self._show_camera_frame)
@@ -436,6 +443,40 @@ class MainWindow(QMainWindow):
         sc_full.activated.connect(self._toggle_fullscreen)
         sc_intr = QShortcut(QKeySequence("Escape"), self)
         sc_intr.activated.connect(self._do_interrupt)
+        sc_world = QShortcut(QKeySequence("Ctrl+Shift+O"), self)
+        sc_world.activated.connect(self._open_default_osiris)
+
+    def _open_osiris(self, url: str) -> None:
+        """Qt-thread slot: keep a single OSIRIS window and reuse it for commands."""
+        from gui.osiris_window import OsirisWindow
+        if self._osiris_window is None:
+            self._osiris_window = OsirisWindow(self)
+            self._osiris_window.result.connect(self._osiris_result)
+        if self._osiris_window.navigate(url):
+            self._osiris_window.show()
+            self._osiris_window.raise_()
+            self._osiris_window.activateWindow()
+
+    def _open_default_osiris(self) -> None:
+        from plugins.osiris_world import build_url, DEFAULT_LAYERS
+        try:
+            self._open_osiris(build_url(DEFAULT_LAYERS))
+        except ValueError as exc:
+            self._log.append_log("OSIRIS: " + str(exc))
+
+    def _control_osiris(self, command: dict) -> None:
+        if self._osiris_window is None:
+            self._open_default_osiris()
+        if self._osiris_window is not None:
+            accepted = self._osiris_window.command(command)
+            if not accepted:
+                self._log.append_log("OSIRIS: Harita komutu kabul edilmedi.")
+
+    def _osiris_result(self, result: dict) -> None:
+        # Results are map state confirmations, never claims about live data accuracy.
+        status = result.get("status", "unverified")
+        self._log.append_log("OSIRIS [" + status + "]: " +
+                             json.dumps(result, ensure_ascii=False)[:1800])
 
     def _show_camera_frame(self, img_bytes: bytes):
         """Slot — display camera preview overlay (main thread)."""
@@ -1251,6 +1292,19 @@ class MainWindow(QMainWindow):
         self._ctrl_btn.setToolTip("Controls — the everyday switches")
         self._ctrl_btn.clicked.connect(self._toggle_controls)
         lay.addWidget(self._ctrl_btn)
+        self._update_btn = QPushButton("GÜNCELLE")
+        self._update_btn.setFont(px_font(10, QFont.Weight.DemiBold, spacing=1))
+        self._update_btn.setMinimumHeight(32)
+        self._update_btn.setStyleSheet(
+            f"QPushButton {{ color: {C.WHITE}; background: {C.BG}; "
+            f"border: 1px solid {C.PRI_DIM}; border-radius: 6px; padding: 0 12px; }}"
+            f"QPushButton:hover {{ border-color: {C.WHITE}; }}"
+            f"QPushButton:disabled {{ color: {C.PRI_DIM}; }}")
+        self._update_btn.setToolTip("GitHub’ı kontrol et ve mevcut dalı güncelle")
+        self._update_btn.clicked.connect(self._start_update)
+        self._update_progress_sig.connect(self._update_progress)
+        self._update_done_sig.connect(self._update_done)
+        lay.addWidget(self._update_btn)
         lay.addStretch()
 
         self._state_chip = StateChip()
@@ -1276,6 +1330,36 @@ class MainWindow(QMainWindow):
         self._fs_btn.clicked.connect(self._toggle_fullscreen)
         lay.addWidget(self._fs_btn)
         return w
+
+    def _start_update(self):
+        if getattr(self, "_updating", False):
+            return
+        self._updating = True
+        self._update_btn.setEnabled(False)
+        self._update_btn.setText("KONTROL…")
+        def work():
+            try:
+                from core.app_updater import update
+                changed, message = update(progress=self._update_progress_sig.emit)
+                self._update_done_sig.emit(changed, message)
+            except Exception as exc:
+                self._update_done_sig.emit(False, f"Güncelleme uygulanamadı: {exc}")
+        # Non-daemon: an ordinary window close must not interrupt a file transaction.
+        threading.Thread(target=work, name="jarvis-update", daemon=False).start()
+
+    def _update_progress(self, message):
+        self._update_btn.setText("GÜNCELLENİYOR…")
+        self._update_btn.setToolTip(message)
+        self._log.append_log(f"SYS: {message}")
+
+    def _update_done(self, changed, message):
+        self._updating = False
+        self._update_btn.setEnabled(not changed)
+        self._update_btn.setText("YENİDEN AÇ" if changed else "GÜNCELLE")
+        self._update_btn.setToolTip(message)
+        self._log.append_log(f"SYS: {message}")
+        from PyQt6.QtWidgets import QMessageBox
+        QMessageBox.information(self, "JARVIS Güncelleme", message)
 
     def _tick_clock(self):
         self._clock_lbl.setText(time.strftime("%H:%M:%S"))
