@@ -96,6 +96,8 @@ from gui.widgets import (ArcLogo, CommandFrame, DataRow, HeaderBar, HoloPanel, I
 
 
 class MainWindow(QMainWindow):
+    _update_progress_sig = pyqtSignal(str)
+    _update_done_sig = pyqtSignal(bool, str)
     _log_sig        = pyqtSignal(str)
     _state_sig      = pyqtSignal(str)
     _content_sig    = pyqtSignal(str, str)   # (title, text) — thread-safe content display
@@ -1290,6 +1292,19 @@ class MainWindow(QMainWindow):
         self._ctrl_btn.setToolTip("Controls — the everyday switches")
         self._ctrl_btn.clicked.connect(self._toggle_controls)
         lay.addWidget(self._ctrl_btn)
+        self._update_btn = QPushButton("GÜNCELLE")
+        self._update_btn.setFont(px_font(10, QFont.Weight.DemiBold, spacing=1))
+        self._update_btn.setMinimumHeight(32)
+        self._update_btn.setStyleSheet(
+            f"QPushButton {{ color: {C.WHITE}; background: {C.BG}; "
+            f"border: 1px solid {C.PRI_DIM}; border-radius: 6px; padding: 0 12px; }}"
+            f"QPushButton:hover {{ border-color: {C.WHITE}; }}"
+            f"QPushButton:disabled {{ color: {C.PRI_DIM}; }}")
+        self._update_btn.setToolTip("GitHub’ı kontrol et ve mevcut dalı güncelle")
+        self._update_btn.clicked.connect(self._start_update)
+        self._update_progress_sig.connect(self._update_progress)
+        self._update_done_sig.connect(self._update_done)
+        lay.addWidget(self._update_btn)
         lay.addStretch()
 
         self._state_chip = StateChip()
@@ -1315,6 +1330,36 @@ class MainWindow(QMainWindow):
         self._fs_btn.clicked.connect(self._toggle_fullscreen)
         lay.addWidget(self._fs_btn)
         return w
+
+    def _start_update(self):
+        if getattr(self, "_updating", False):
+            return
+        self._updating = True
+        self._update_btn.setEnabled(False)
+        self._update_btn.setText("KONTROL…")
+        def work():
+            try:
+                from core.app_updater import update
+                changed, message = update(progress=self._update_progress_sig.emit)
+                self._update_done_sig.emit(changed, message)
+            except Exception as exc:
+                self._update_done_sig.emit(False, f"Güncelleme uygulanamadı: {exc}")
+        # Non-daemon: an ordinary window close must not interrupt a file transaction.
+        threading.Thread(target=work, name="jarvis-update", daemon=False).start()
+
+    def _update_progress(self, message):
+        self._update_btn.setText("GÜNCELLENİYOR…")
+        self._update_btn.setToolTip(message)
+        self._log.append_log(f"SYS: {message}")
+
+    def _update_done(self, changed, message):
+        self._updating = False
+        self._update_btn.setEnabled(not changed)
+        self._update_btn.setText("YENİDEN AÇ" if changed else "GÜNCELLE")
+        self._update_btn.setToolTip(message)
+        self._log.append_log(f"SYS: {message}")
+        from PyQt6.QtWidgets import QMessageBox
+        QMessageBox.information(self, "JARVIS Güncelleme", message)
 
     def _tick_clock(self):
         self._clock_lbl.setText(time.strftime("%H:%M:%S"))

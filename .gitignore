@@ -48,3 +48,8 @@ desktop.ini
 logs/
 downloads/
 screenshots/
+
+# Local updater transaction metadata and recovery copies
+.jarvis-update*
+.jarvis-backups/
+*.jarvis-new
