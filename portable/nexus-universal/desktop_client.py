@@ -6,7 +6,6 @@ Only explicit HTTPS requests to an owner-configured JARVIS server.
 from __future__ import annotations
 
 import argparse
-import getpass
 import http.client
 import json
 import ssl
@@ -22,13 +21,14 @@ class ClientError(Exception):
 
 
 def normalize_origin(value: str) -> str:
-    if not isinstance(value, str) or len(value) > 2048:
+    if not isinstance(value, str) or not value.strip() or len(value) > 2048:
         raise ClientError("Invalid server URL")
     try:
         parsed = urlsplit(value.strip())
         if (parsed.scheme != "https" or not parsed.hostname or
             parsed.username is not None or parsed.password is not None or
             parsed.path not in ("", "/") or parsed.query or parsed.fragment or
+            any(c.isspace() for c in value) or
             parsed.port == 0):
             raise ClientError("A HTTPS server root URL is required")
         port = parsed.port
@@ -89,7 +89,7 @@ class JarvisClient:
             if not isinstance(version, (str, int, float)) or isinstance(version, bool):
                 version = "unknown"
             return ServerState(str(version)[:64], True)
-        except (OSError, ValueError, UnicodeError, json.JSONDecodeError) as exc:
+        except (OSError, ValueError, UnicodeError, json.JSONDecodeError, http.client.HTTPException) as exc:
             raise ClientError("Secure state request failed") from exc
         finally:
             connection.close()
