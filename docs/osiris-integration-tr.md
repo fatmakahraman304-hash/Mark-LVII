@@ -1,7 +1,7 @@
 # MARK LVII + OSIRIS — Dünya Komuta Merkezi (Aşama 1)
 
 Bu klasördeki `plugins/osiris_world.py`, JARVIS'in **sesli komutlarıyla**
-OSIRIS'in resmi dünya haritasını tarayıcıda açar ve **URL tabanlı** harita
+OSIRIS'in resmi dünya haritasını JARVIS'in isteğe bağlı Qt penceresinde\n(veya sistem tarayıcısında) açar ve **URL tabanlı** harita
 katmanlarını değiştirir. Orijinal MARK LVII arayüzünü, Gemini oturumunu veya
 ses altyapısını değiştirmez. Python bağımlılığı eklemez.
 
@@ -38,7 +38,7 @@ katmanlarını ayarlar. Komutlar aynı tarayıcı sekmesinin durumunu değiştir
 tarayıcı URL'si değiştiğinde farklı bir sekmede açılabilir. JARVIS'in kendi
 seçim hafızası yalnızca çalışan uygulama oturumu boyunca tutulur.
 
-## Yerel OSIRIS (isteğe bağlı, daha sonra)
+\n### Qt içinde gömülü harita (isteğe bağlı)\n\nPyQt6-WebEngine kuruluysa JARVIS'in Qt ana iş parçacığında açılan OSIRIS\npenceresi kullanılır. Gerekli değilse / açılmıyorsa uygulama normal tarayıcıyı\nkullanır. Bu paket JARVIS'in varsayılan `requirements.txt` dosyasında yoktur.\nLaptopta ayrıca kurmak istersen:\n\n```powershell\ncd C:\\Fatih-JARVIS\n.\\.venv\\Scripts\\python.exe -m pip install PyQt6-WebEngine\n```\n\n**Ctrl+Shift+O**, OSIRIS haritasını doğrudan açar. Gömülü pencereyi kapatmak\nJARVIS sesli oturumunu kapatmaz. Bu PyQt yolu henüz gerçek Windows ekranında\ntest edilmemiştir; eksik bağımlılık durumunda güvenli tarayıcı yedeği vardır.\n\n## Yerel OSIRIS (isteğe bağlı, daha sonra)
 
 Bu ilk aşama varsayılan olarak `https://osirisai.live/` kullanır.
 OSIRIS'i ayrıca yerel kurduktan sonra Windows'ta JARVIS'i başlatmadan önce:
