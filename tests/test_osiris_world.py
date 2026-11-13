@@ -71,6 +71,27 @@ class OsirisPluginTests(unittest.TestCase):
         self.assertEqual(browser.call_count, 4)
 
     @patch("plugins.osiris_world.webbrowser.open", return_value=True)
+    def test_prefers_jarvis_qt_window_when_available(self, browser):
+        class StubUI:
+            def __init__(self):
+                self.urls = []
+                self.logs = []
+
+            def show_osiris(self, url):
+                self.urls.append(url)
+
+            def write_log(self, message):
+                self.logs.append(message)
+
+        ui = StubUI()
+        reply = plugin.run({"mode": "focus", "layers": "deprem"}, player=ui)
+        self.assertIn("görüntüleyiciye iletildi", reply)
+        self.assertEqual(len(ui.urls), 1)
+        self.assertIn("earthquakes", ui.urls[0])
+        self.assertTrue(ui.logs)
+        browser.assert_not_called()
+
+    @patch("plugins.osiris_world.webbrowser.open", return_value=True)
     def test_invalid_layer_never_opens_browser(self, browser):
         reply = plugin.run({"mode": "show", "layers": "https://evil.test"})
         self.assertIn("Tanınmayan", reply)
