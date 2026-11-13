@@ -12,23 +12,31 @@ from device_registry import DeviceRegistry
 from pairing_store import PairingStore
 from replay_store import ReplayStore
 from scope_policy import required_scope
+from device_consent import ConsentManager
+from session_tokens import SessionManager
 
 
 class SecureDispatcher:
     def __init__(self, pairing: PairingStore, registry: DeviceRegistry,
-                 replay: ReplayStore, audit: AuditStore):
+                 replay: ReplayStore, audit: AuditStore,
+                 sessions: SessionManager | None = None,
+                 consent: ConsentManager | None = None):
         self.pairing = pairing
         self.registry = registry
         self.replay = replay
         self.audit = audit
         self.adapters: dict[str, DeviceAdapter] = {}
+        self.sessions = sessions or SessionManager()
+        self.consent = consent or ConsentManager()
 
     def attach(self, device_id: str, adapter: DeviceAdapter) -> None:
         if self.registry.get(device_id) is None:
             raise ValueError("Device must be registered before adapter attachment")
         self.adapters[device_id] = adapter
 
-    def dispatch(self, command: Command, *, device_token: str) -> CommandResult:
+    def dispatch(self, command: Command, *, device_token: str,
+                 session_id: str = "", session_bearer: str = "",
+                 consent_id: str = "") -> CommandResult:
         command.validate()
         device_id = command.device_id
         def deny(code: ResultCode, message: str) -> CommandResult:
@@ -40,6 +48,8 @@ class SecureDispatcher:
             scope = required_scope(command.action)
             if not self.pairing.authenticate(device_id, device_token, scope):
                 return deny(ResultCode.DENIED, "Authentication or scope denied")
+            if not self.sessions.verify(session_id, session_bearer, device_id, scope):
+                return deny(ResultCode.DENIED, "Session missing or expired")
             device = self.registry.get(device_id)
             if device is None or not device.paired or device.revoked:
                 return deny(ResultCode.DENIED, "Device not authorized")
@@ -55,6 +65,12 @@ class SecureDispatcher:
                 return deny(ResultCode.UNSUPPORTED, "No approved adapter")
             if not self.replay.reserve(device_id, command.command_id, command.expires_at):
                 return deny(ResultCode.DENIED, "Command replayed or expired")
+            # Read-only status may proceed without an interactive prompt.
+            # Every state-changing action requires a separate trusted local approval.
+            if command.action != "status.read" and not self.consent.consume(
+                consent_id, device_id, command.command_id, command.action
+            ):
+                return deny(ResultCode.DENIED, "Local consent required")
             self.audit.append("command.allowed", device_id)
             try:
                 result = adapter.execute(command)
@@ -63,6 +79,6 @@ class SecureDispatcher:
                 return result
             except Exception:
                 return CommandResult(command.command_id, ResultCode.FAILED, "Adapter failed")
-        except (OSError, ValueError):
+        except (OSError, ValueError, TypeError):
             # Storage/validation failures must not authorize an action.
             return CommandResult(command.command_id, ResultCode.FAILED, "Security subsystem unavailable")
