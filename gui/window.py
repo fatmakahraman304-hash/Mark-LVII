@@ -134,13 +134,12 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle(f"{_display} — {APP_VERSION}")
         self.setMinimumSize(_MIN_W, _MIN_H)
-        self.resize(_DEFAULT_W, _DEFAULT_H)
-
-        screen = QApplication.primaryScreen().availableGeometry()
-        self.move(
-            (screen.width()  - _DEFAULT_W) // 2,
-            (screen.height() - _DEFAULT_H) // 2,
-        )
+        # Fit 1080p work areas and scaled Windows desktops.
+        screen = self.screen().availableGeometry()
+        self.resize(min(_DEFAULT_W, max(_MIN_W, screen.width() - 48)),
+                    min(_DEFAULT_H, max(_MIN_H, screen.height() - 64)))
+        self.move(screen.x() + (screen.width() - self.width()) // 2,
+                  screen.y() + (screen.height() - self.height()) // 2)
 
         self.on_text_command   = None
         self.on_remote_clicked = None   # callable: () -> (url, key) | None
@@ -170,8 +169,8 @@ class MainWindow(QMainWindow):
         root.addWidget(self._build_header())
 
         body = QHBoxLayout()
-        body.setContentsMargins(10, 10, 10, 10)
-        body.setSpacing(10)
+        body.setContentsMargins(18, 18, 18, 18)
+        body.setSpacing(16)
 
         self._left_panel = self._build_left_panel()
         body.addWidget(self._left_panel, stretch=0)
@@ -1215,10 +1214,10 @@ class MainWindow(QMainWindow):
 
     def _build_header(self) -> QWidget:
         w = HeaderBar()
-        w.setFixedHeight(58)
+        w.setFixedHeight(78)
         self._header = w
         lay = QHBoxLayout(w)
-        lay.setContentsMargins(14, 6, 14, 8)
+        lay.setContentsMargins(22, 12, 22, 12)
         lay.setSpacing(10)
         lay.addWidget(ArcLogo())
 
@@ -1226,11 +1225,11 @@ class MainWindow(QMainWindow):
         name_col.setSpacing(0)
         display = self._assistant_name.upper()
         self._title_lbl = QLabel(display)
-        self._title_lbl.setFont(px_font(19, QFont.Weight.Light, spacing=3.5))
+        self._title_lbl.setFont(px_font(24, QFont.Weight.Light, spacing=4.5))
         self._title_lbl.setStyleSheet(f"color: {C.WHITE}; background: transparent;")
         self._title_lbl.setToolTip(self._subtitle(display))
         name_col.addWidget(self._title_lbl)
-        self._sub_lbl = QLabel(f"{APP_VERSION}  ·  PERSONAL AI SYSTEM")
+        self._sub_lbl = QLabel(f"MURAT KAHRAMAN  /  PERSONAL EDITION  ·  {APP_VERSION}")
         self._sub_lbl.setFont(px_font(9, QFont.Weight.DemiBold, spacing=2.2))
         self._sub_lbl.setStyleSheet(f"color: {C.PRI_DIM}; background: transparent;")
         name_col.addWidget(self._sub_lbl)
@@ -1291,9 +1290,9 @@ class MainWindow(QMainWindow):
         the space a larger window was opened for."""
         W = self.width()
         if hasattr(self, "_left_panel"):
-            self._left_panel.setFixedWidth(max(190, min(250, int(W * 0.19))))
+            self._left_panel.setFixedWidth(max(190, min(300, int(W * 0.18))))
         if hasattr(self, "_right_panel"):
-            self._right_panel.setFixedWidth(max(290, min(400, int(W * 0.27))))
+            self._right_panel.setFixedWidth(max(290, min(460, int(W * 0.27))))
         # The network graph is the first thing to give up its space: below this
         # height the gauges and the task list need it more, and the rate itself
         # is still in STATUS.
@@ -2956,5 +2955,6 @@ class MainWindow(QMainWindow):
         self._apply_state("LISTENING")
         self._assistant_name = _read_full_config().get("assistant_name", "JARVIS") or "JARVIS"
         self._log.append_log(f"SYS: Initialised. OS={os_name.upper()}. {self._assistant_name} online.")
+
 
 

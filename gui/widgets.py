@@ -127,7 +127,7 @@ class LogWidget(QTextEdit):
         # without bound. Each line is two blocks now (label, then words), so
         # the cap is twice the old one-block-per-line figure.
         self.document().setMaximumBlockCount(1200)
-        self.document().setDocumentMargin(4)
+        self.document().setDocumentMargin(10)
         self.setFont(px_font(13))
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setStyleSheet(f"""
@@ -570,7 +570,7 @@ class HoloPanel(QWidget):
     a header strip carrying a title and a short code. Children go in `body`;
     small buttons can sit at the right of the header (add_header_widget)."""
 
-    HEADER = 30
+    HEADER = 36
 
     def __init__(self, title: str = "", code: str = "", parent=None, pad: int = 10):
         super().__init__(parent)
@@ -579,7 +579,7 @@ class HoloPanel(QWidget):
         self.body = QVBoxLayout(self)
         top = self.HEADER + 5 if title else pad
         self.body.setContentsMargins(pad + 2, top, pad + 2, pad + 2)
-        self.body.setSpacing(6)
+        self.body.setSpacing(8)
 
     def set_title(self, text: str) -> None:
         self._title = str(text or "")
@@ -623,18 +623,15 @@ class HoloPanel(QWidget):
         W, H = self.width(), self.height()
         cut = 11
         g = QLinearGradient(0, 0, 0, H)
-        g.setColorAt(0.0, blend(C.PRI, 0.085))
-        g.setColorAt(0.18, blend(C.PRI, 0.045))
-        g.setColorAt(1.0, blend(C.PRI, 0.025))
+        g.setColorAt(0.0, qcol(C.PANEL2))
+        g.setColorAt(0.18, qcol(C.PANEL))
+        g.setColorAt(1.0, qcol(C.DARK))
         p.setBrush(QBrush(g))
         p.setPen(QPen(blend(C.PRI, 0.24), 1))
-        p.drawPolygon(chamfer(QRectF(0.5, 0.5, W - 1, H - 1), cut))
-        # lit edges: the two chamfers and a short run along from each
-        p.setPen(QPen(blend(C.PRI, 0.85), 1.6))
-        p.drawLine(QLineF(0.5, cut + 0.5, cut + 0.5, 0.5))
-        p.drawLine(QLineF(cut + 0.5, 0.5, cut + 44, 0.5))
-        p.drawLine(QLineF(W - 0.5, H - cut - 0.5, W - cut - 0.5, H - 0.5))
-        p.drawLine(QLineF(W - cut - 0.5, H - 0.5, W - cut - 34, H - 0.5))
+        p.drawRoundedRect(QRectF(0.5, 0.5, W - 1, H - 1), 10, 10)
+        # Signature accent, painted from the live palette.
+        p.setPen(QPen(qcol(C.ACC), 2))
+        p.drawLine(QLineF(18, 1, 58, 1))
         if self._title:
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(QBrush(qcol(C.ACC)))
@@ -950,7 +947,7 @@ class IconButton(QPushButton):
         hot = self.underMouse() or self.isChecked() or self.isDown()
         p.setBrush(QBrush(blend(col, 0.20 if self.isDown() else 0.15 if hot else 0.06)))
         p.setPen(QPen(blend(col, 0.8 if hot else 0.42), 1))
-        p.drawPolygon(chamfer(QRectF(0.5, 0.5, W - 1, H - 1), 6))
+        p.drawRoundedRect(QRectF(0.5, 0.5, W - 1, H - 1), 7, 7)
         if self._compact:
             paint_icon(p, self._kind, QRectF(W * 0.26, H * 0.26, W * 0.48, H * 0.48), col)
         else:
@@ -1303,3 +1300,4 @@ class TaskRow(QWidget):
         p.drawText(QRectF(14, 27, W - 14, 16), Qt.AlignmentFlag.AlignVCenter,
                    p.fontMetrics().elidedText(last, Qt.TextElideMode.ElideRight, int(W - 14)))
         p.end()
+
