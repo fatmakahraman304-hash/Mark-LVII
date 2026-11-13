@@ -7,6 +7,8 @@ on:
   pull_request:
     paths:
       - "plugins/osiris_world.py"
+      - "plugins/osiris_intel.py"
+      - "tests/test_osiris_intel.py"
       - "gui/osiris_window.py"
       - "gui/window.py"
       - "ui.py"
@@ -29,6 +31,8 @@ jobs:
         with:
           python-version: "3.13"
       - name: Syntax check
-        run: python -m py_compile plugins/osiris_world.py gui/osiris_window.py gui/window.py ui.py tests/test_osiris_world.py
-      - name: Unit tests (browser mocked, no API keys)
+        run: python -m py_compile plugins/osiris_world.py plugins/osiris_intel.py gui/osiris_window.py gui/window.py ui.py tests/test_osiris_world.py tests/test_osiris_intel.py
+      - name: Unit tests — OSIRIS map bridge (browser mocked)
         run: python -m unittest discover -s tests -p 'test_osiris_world.py' -v
+      - name: Unit tests — OSIRIS read-only data (network mocked)
+        run: python -m unittest discover -s tests -p 'test_osiris_intel.py' -v
