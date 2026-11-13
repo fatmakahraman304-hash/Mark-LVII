@@ -1,0 +1,13 @@
+<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JARVIS NEXUS UNIVERSAL</title><style>body{background:#081521;color:#e3f8ff;font:18px system-ui;margin:24px auto;padding:0 12px;max-width:760px}h1{color:#73d9ff}select,button{font:inherit;padding:12px;border-radius:8px}section{border:1px solid #39718b;padding:18px;border-radius:12px}#result{white-space:pre-wrap;line-height:1.7}</style></head><body><h1>JARVIS NEXUS UNIVERSAL</h1><p>USB cihaz uyumluluk rehberi • prototip</p><section><label for="platform">Cihaz türü</label> <select id="platform"><option value="windows">Windows PC</option><option value="linux">Linux PC</option><option value="macos">macOS</option><option value="android">Android telefon/tablet</option><option value="android_tv">Android TV / projeksiyon</option><option value="tizen">Samsung Tizen TV</option><option value="webos">LG webOS TV</option><option value="ios">iPhone/iPad</option><option value="generic_projector">Basit projeksiyon</option></select><p id="result" role="status"></p></section><p>Bu sayfa cihazı hacklemez, yazılım kurmaz veya cihaz kontrolü gerçekleştirmez. Destek yalnızca yetkilendirilmiş ve doğrulanmış entegrasyonlarla sağlanır.</p><script>
+const profiles={
+windows:["USB'den elle açılan taşınabilir istemci hedefleniyor.","Planlama"],
+linux:["Tarayıcı istemcisi prototipi mevcut; USB'den HTML açılması cihaza bağlı.","Prototip"],
+macos:["İmzalı uygulama geliştirilmesi gerekiyor.","Planlama"],
+android:["Android APK kaynak kodu var; kurulum izni ve derleme gerekiyor.","Kaynak kod"],
+android_tv:["Android APK kaynak kodu var; TV uyumluluğu ve giriş aygıtları test edilmeli.","Kaynak kod"],
+tizen:["USB'den Android APK çalışmaz; üretici uygulaması veya izinli ağ API'si gerekir.","Araştırma"],
+webos:["USB'den Android APK çalışmaz; üretici uygulaması veya izinli ağ API'si gerekir.","Araştırma"],
+ios:["USB'den uygulama başlatılamaz; onaylı uygulama veya web istemcisi gerekir.","Araştırma"],
+generic_projector:["USB çoğunlukla medya dosyası okur; çalıştırma desteği garanti değildir.","Araştırma"]};
+const s=document.getElementById('platform'),r=document.getElementById('result');function update(){const x=profiles[s.value];r.textContent='Durum: '+x[1]+'\n'+x[0]}s.addEventListener('change',update);update();
+</script></body></html>
