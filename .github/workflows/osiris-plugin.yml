@@ -12,6 +12,7 @@ on:
       - "gui/osiris_window.py"
       - "gui/window.py"
       - "ui.py"
+      - "requirements.txt"
       - "tests/test_osiris_world.py"
       - ".github/workflows/osiris-plugin.yml"
 
@@ -36,3 +37,10 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_osiris_world.py' -v
       - name: Unit tests — OSIRIS read-only data (network mocked)
         run: python -m unittest discover -s tests -p 'test_osiris_intel.py' -v
+      - name: Windows Qt WebEngine import and URL safety smoke test
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python -m pip install "PyQt6>=6.6,<7" "PyQt6-WebEngine>=6.6,<7"
+          python -c "from PyQt6.QtWebEngineWidgets import QWebEngineView; from gui.osiris_window import _allowed_url; assert _allowed_url('https://osirisai.live/?layers=earthquakes'); assert not _allowed_url('https://untrusted.example/'); print('Qt WebEngine import OK')"
+
