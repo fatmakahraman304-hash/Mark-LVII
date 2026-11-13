@@ -266,6 +266,13 @@ class JarvisUI:
         """Thread-safe: display content in the panel below the HUD."""
         self._win._content_sig.emit(title[:48], text[:4000])
 
+    def show_osiris(self, url: str) -> None:
+        """Thread-safe: queue an OSIRIS map URL to the main Qt GUI thread.
+
+        Returning does not guarantee that the remote page finished loading.
+        """
+        self._win._osiris_sig.emit(str(url))
+
     def show_code_job(self, job: dict) -> None:
         """Thread-safe: draw the coding agent's live progress in the panel."""
         self._win._codejob_sig.emit(dict(job))
