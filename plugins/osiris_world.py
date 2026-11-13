@@ -1,7 +1,7 @@
 """OSIRIS world-map voice bridge for MARK LVII.
 
-Phase 1 opens documented OSIRIS layer links in the user's browser.
-It does NOT embed a web view, read live map data or remotely control a tab.
+Opens documented OSIRIS layer links in the MARK LVII Qt window or browser.
+Optional PyQt6-WebEngine provides an embedded view. No live data reading.
 No third-party Python packages, credentials, web scraping, or background polling.
 
 OSIRIS: https://github.com/simplifaisoul/osiris (MIT licence).
@@ -87,7 +87,7 @@ PLUGIN = {
         "map, or to show/hide map data layers (aircraft, ships, public CCTV, "
         "satellites, earthquakes, weather, news). Open a browser URL with the "
         "chosen layer configuration. This does NOT read live information or "
-        "control an existing tab; do not claim that the map loaded or that any "
+        "control arbitrary web tabs; do not claim the map loaded or that any "
         "event or aircraft was observed. Turkish requests are supported. "
         "Modes: open, show, hide, focus, preset, reset, clear."
     ),
@@ -203,13 +203,18 @@ def run(parameters: dict, player=None, session_memory=None) -> str:
             selected = _prepare(mode, params, set(_selected_layers))
             url = build_url(selected)
             # A successful return only means the OS accepted the browser request.
-            accepted = webbrowser.open(url, new=2, autoraise=True)
+            display = getattr(player, "show_osiris", None) if player is not None else None
+            if callable(display):
+                display(url)  # Emits a Qt signal; navigation happens on the GUI thread.
+                accepted = True
+            else:
+                accepted = webbrowser.open(url, new=2, autoraise=True)
             if not accepted:
                 return "OSIRIS bağlantısı hazır ancak tarayıcı açma isteği kabul edilmedi."
             _selected_layers = selected
         count = len(selected)
         message = (
-            f"OSIRIS haritası tarayıcıya gönderildi. Seçili katman sayısı: {count}. "
+            f"OSIRIS haritası görüntüleyiciye iletildi. Seçili katman sayısı: {count}. "
             "Haritanın yüklendiği henüz doğrulanmadı."
         )
         if player is not None:
