@@ -2263,7 +2263,7 @@ class MainWindow(QMainWindow):
     def _build_footer(self) -> QWidget:
         self._status_strip = StatusStrip()
         self._status_strip.set_right(
-            "F4 MUTE   ·   F11 FULLSCREEN   ·   ESC INTERRUPT   ·   BY FATIHMAKES")
+            "F4 MUTE   ·   F11 FULLSCREEN   ·   ESC INTERRUPT")
         self._refresh_status_strip()
         return self._status_strip
 
