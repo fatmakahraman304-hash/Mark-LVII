@@ -1,0 +1,12 @@
+:root{font-family:system-ui,"Segoe UI",Arial,sans-serif;color:#def7ff;background:#06121e;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;padding:28px}main{max-width:1450px;margin:0 auto}header{display:flex;align-items:center;justify-content:space-between;gap:22px;border-bottom:1px solid #285b75;margin-bottom:24px}
+h1{font-size:clamp(2.8rem,5vw,5.5rem);margin:0;letter-spacing:.16em;color:#73deff}.sub{letter-spacing:.13em;color:#a5c3d3}#status{color:#f5d78b;font-weight:700;font-size:1.1rem}
+.board{display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:22px}.chat,aside{border:1px solid #27637f;background:#0b2438;border-radius:17px;padding:22px}
+#messages{min-height:42vh;max-height:53vh;overflow-y:auto;display:flex;flex-direction:column;gap:14px;margin-bottom:22px;scroll-behavior:smooth}
+.bubble{font-size:clamp(1.05rem,1.7vw,1.55rem);white-space:pre-wrap;overflow-wrap:anywhere;max-width:87%;padding:16px 20px;border-radius:17px;margin:0;line-height:1.5}
+.assistant{background:#14354b;align-self:flex-start;border:1px solid #32718d}.user{background:#114458;align-self:flex-end;border:1px solid #358dad}
+label{display:block;margin-bottom:8px;color:#b9d8e8}textarea{width:100%;padding:15px;background:#092033;color:#fff;border:1px solid #61bfe2;border-radius:10px;font:inherit;font-size:1.3rem;resize:vertical;min-height:90px}
+.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}button{background:#73dbff;color:#051521;border:0;border-radius:10px;padding:15px 24px;font-size:1.2rem;font-weight:700;cursor:pointer;min-height:57px}
+button[disabled]{opacity:.45;cursor:not-allowed}button:focus,textarea:focus{outline:3px solid #ffcc75;outline-offset:3px}
+aside h2{margin-top:0;color:#88dcff}aside p{line-height:1.5}.note{color:#a9c5d4}footer{padding:22px 0;color:#adc8d7;font-size:.95rem}
+@media(max-width:900px){body{padding:15px}.board{grid-template-columns:1fr}#messages{max-height:50vh;min-height:32vh}}
