@@ -76,15 +76,35 @@ class LayoutContractTests(unittest.TestCase):
             Path(__file__).resolve().parents[1] / "gui/window.py"
         ).read_text(encoding="utf-8")
 
-    def test_command_sidebar_is_left_of_hud_and_telemetry_right(self):
+    def test_original_sidebars_stay_in_place(self):
         text = self.source
         beginning = text.index("        body = QHBoxLayout()")
         end = text.index("        root.addLayout(body, stretch=1)", beginning)
         layout = text[beginning:end]
-        self.assertLess(layout.index("body.addWidget(self._right_panel"),
+        # Systems/telemetry on the left; communications/command on the right.
+        self.assertLess(layout.index("body.addWidget(self._left_panel"),
                         layout.index("body.addWidget(self._center_split"))
         self.assertLess(layout.index("body.addWidget(self._center_split"),
-                        layout.index("body.addWidget(self._left_panel"))
+                        layout.index("body.addWidget(self._right_panel"))
+        self.assertLess(layout.index("self._left_panel = self._build_left_panel"),
+                        layout.index("self._right_panel = self._build_right_panel"))
+
+    def test_camera_overlay_avoids_original_right_sidebar(self):
+        self.assertEqual(
+            self.source.count(
+                "cw.width() - self._right_panel.width() - pw - 22"
+            ), 2,
+        )
+
+    def test_side_column_widths_unchanged(self):
+        self.assertIn(
+            'self._left_panel.setFixedWidth(max(190, min(300, int(W * 0.18))))',
+            self.source,
+        )
+        self.assertIn(
+            'self._right_panel.setFixedWidth(max(290, min(460, int(W * 0.27))))',
+            self.source,
+        )
 
     def test_header_actions_are_left_and_duplicate_state_hidden(self):
         text = self.source
