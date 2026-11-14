@@ -33,9 +33,11 @@ class RestartManagerTests(unittest.TestCase):
         self.assertEqual(kind, "helper")
         launch.assert_called_once()
         args, kwargs = launch.call_args
-        self.assertEqual(args[0],
-                         [sys.executable, str(self.helper), "1234", str(self.root)])
-        self.assertEqual(kwargs["cwd"], str(self.root))
+        self.assertEqual(args[0][0], sys.executable)
+        self.assertTrue(Path(args[0][1]).samefile(self.helper))
+        self.assertEqual(args[0][2], "1234")
+        self.assertTrue(Path(args[0][3]).samefile(self.root))
+        self.assertTrue(Path(kwargs["cwd"]).samefile(self.root))
         self.assertTrue((Path(self.tmp.name) / "Jarvis/logs/restart.log").is_file())
 
     def test_supervised_restart_does_not_launch_second_process(self):
