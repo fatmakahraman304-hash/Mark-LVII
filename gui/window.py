@@ -91,7 +91,7 @@ from PyQt6.QtWidgets import QGridLayout
 from gui.style import DISPLAY_CSS, btn_css, hud_font, px_font, scroll_css
 from gui.location_map import LocationPanel
 from gui.widgets import (ArcLogo, CommandFrame, DataRow, HeaderBar, HoloPanel, IconButton,
-                         PanelText, RingGauge, RoutineRow, Sparkline, StateChip, StatusStrip,
+                         PanelText, RingGauge, RoutineRow, Sparkline, StatusStrip,
                          TaskRow)
 
 
@@ -178,8 +178,8 @@ class MainWindow(QMainWindow):
         body.setContentsMargins(18, 18, 18, 18)
         body.setSpacing(16)
 
-        self._left_panel = self._build_left_panel()
-        body.addWidget(self._left_panel, stretch=0)
+        self._right_panel = self._build_right_panel()
+        body.addWidget(self._right_panel, stretch=0)
 
         # Center column: HUD + resizable content panel via QSplitter
         self.hud = HudCanvas(face_path, _display)
@@ -371,8 +371,9 @@ class MainWindow(QMainWindow):
         self._center_split.setCollapsible(0, False)
         body.addWidget(self._center_split, stretch=5)
 
-        self._right_panel = self._build_right_panel()
-        body.addWidget(self._right_panel, stretch=0)
+        # System telemetry now lives to the right; daily controls and chat to the left.
+        self._left_panel = self._build_left_panel()
+        body.addWidget(self._left_panel, stretch=0)
 
         root.addLayout(body, stretch=1)
         root.addWidget(self._build_footer())
@@ -485,7 +486,7 @@ class MainWindow(QMainWindow):
         pw = _CameraPreview._W
         ph = self._cam_preview.height()
         self._cam_preview.setGeometry(
-            cw.width() - self._right_panel.width() - pw - 22,
+            cw.width() - self._left_panel.width() - pw - 22,
             cw.height() - ph - 28,
             pw, ph,
         )
@@ -1201,7 +1202,7 @@ class MainWindow(QMainWindow):
         pw = _CameraPreview._W
         ph = self._cam_preview.height() or _CameraPreview._H
         self._cam_preview.setGeometry(
-            cw.width() - self._right_panel.width() - pw - 22,
+            cw.width() - self._left_panel.width() - pw - 22,
             cw.height() - ph - 28,
             pw, ph,
         )
@@ -1265,7 +1266,7 @@ class MainWindow(QMainWindow):
         left = QWidget(w)
         left_lay = QHBoxLayout(left)
         left_lay.setContentsMargins(0, 0, 0, 0)
-        left_lay.setSpacing(16)
+        left_lay.setSpacing(8)
         right = QWidget(w)
         lay = QHBoxLayout(right)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -1287,12 +1288,12 @@ class MainWindow(QMainWindow):
         self._drawer_btn.setCheckable(True)
         self._drawer_btn.setToolTip("Setup — things you set once")
         self._drawer_btn.clicked.connect(self._toggle_drawer)
-        lay.addWidget(self._drawer_btn)
+        left_lay.addWidget(self._drawer_btn)
         self._ctrl_btn = IconButton("sliders", 32)
         self._ctrl_btn.setCheckable(True)
         self._ctrl_btn.setToolTip("Controls — the everyday switches")
         self._ctrl_btn.clicked.connect(self._toggle_controls)
-        lay.addWidget(self._ctrl_btn)
+        left_lay.addWidget(self._ctrl_btn)
         self._update_btn = QPushButton("GÜNCELLE")
         self._update_btn.setFont(px_font(10, QFont.Weight.DemiBold, spacing=1))
         self._update_btn.setMinimumHeight(32)
@@ -1305,9 +1306,9 @@ class MainWindow(QMainWindow):
         self._update_btn.clicked.connect(self._start_update)
         self._update_progress_sig.connect(self._update_progress)
         self._update_done_sig.connect(self._update_done)
-        lay.addWidget(self._update_btn)
-        self._state_chip = StateChip()
-        left_lay.addWidget(self._state_chip)
+        left_lay.addWidget(self._update_btn)
+        # The central HUD already displays listening/speaking state.
+        # Do not duplicate that state at the top left.
 
         clock_col = QVBoxLayout()
         clock_col.setSpacing(0)
@@ -1321,13 +1322,13 @@ class MainWindow(QMainWindow):
         self._date_lbl.setStyleSheet(f"color: {C.PRI_DIM}; background: transparent;")
         self._date_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
         clock_col.addWidget(self._date_lbl)
-        left_lay.addLayout(clock_col)
-        left_lay.addStretch()
-        lay.addSpacing(4)
+        lay.addLayout(clock_col)
+        left_lay.addSpacing(4)
         self._fs_btn = IconButton("expand", 32)
         self._fs_btn.setToolTip("Fullscreen  [F11]")
         self._fs_btn.clicked.connect(self._toggle_fullscreen)
-        lay.addWidget(self._fs_btn)
+        left_lay.addWidget(self._fs_btn)
+        left_lay.addStretch()
         return w
 
     def _start_update(self):
@@ -1365,22 +1366,31 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, "JARVIS Güncelleme", message)
 
     def _restart_after_update(self):
+        """An update restarts JARVIS automatically, after its process exits.
+
+        A supervised OSIRIS launch uses exit code 75; a normal launch uses a
+        separate helper. Never close the current GUI if the helper cannot
+        start, so users can still see the error and restart manually.
+        """
         try:
-            if os.environ.get("JARVIS_MANAGED_RESTART") != "1":
-                project = Path(__file__).resolve().parents[1]
-                logs = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".local/share"))) / "Jarvis/logs"
-                logs.mkdir(parents=True, exist_ok=True)
-                with (logs / "restart.log").open("a", encoding="utf-8") as log:
-                    subprocess.Popen(
-                        [sys.executable, str(project / "tools/restart_app.py"), str(os.getpid()), str(project)],
-                        cwd=project, stdout=log, stderr=subprocess.STDOUT,
-                        creationflags=0x08000000 if os.name == "nt" else 0,
-                        start_new_session=os.name != "nt")
+            from core.restart_manager import schedule_restart
+            project = Path(__file__).resolve().parents[1]
+            schedule_restart(project, os.getpid(), executable=sys.executable)
             self._restart_requested = True
             QApplication.instance().quit()
         except Exception as exc:
-            self._log.append_log(f"SYS: Otomatik yeniden başlatma başarısız: {exc}. JARVIS’i yeniden açın.")
-
+            self._restart_requested = False
+            self._update_btn.setText("ELLE YENİDEN AÇ")
+            self._log.append_log(
+                f"SYS: Otomatik yeniden başlatma başarısız: {exc}. "
+                "JARVIS'i kapatıp tekrar açın."
+            )
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self, "JARVIS Yeniden Başlatma",
+                "Güncelleme uygulandı ancak otomatik yeniden başlatılamadı. "
+                "Lütfen JARVIS'i kapatıp tekrar açın.\n\n" + str(exc)
+            )
 
     def _tick_clock(self):
         self._clock_lbl.setText(time.strftime("%H:%M:%S"))
@@ -1395,10 +1405,12 @@ class MainWindow(QMainWindow):
         """Side columns grow with the window, within limits, so the centre keeps
         the space a larger window was opened for."""
         W = self.width()
-        if hasattr(self, "_left_panel"):
-            self._left_panel.setFixedWidth(max(190, min(300, int(W * 0.18))))
         if hasattr(self, "_right_panel"):
+            # Communications + command inputs are now on the LEFT.
             self._right_panel.setFixedWidth(max(290, min(460, int(W * 0.27))))
+        if hasattr(self, "_left_panel"):
+            # Gauges, system status and tasks are now on the RIGHT.
+            self._left_panel.setFixedWidth(max(190, min(300, int(W * 0.18))))
         # The network graph is the first thing to give up its space: below this
         # height the gauges and the task list need it more, and the rate itself
         # is still in STATUS.
@@ -1868,11 +1880,13 @@ class MainWindow(QMainWindow):
         drawer.setFixedWidth(_W)
         drawer.adjustSize()
         top = self._header.height() + 2 if hasattr(self, "_header") else 60
-        drawer.setGeometry(left, top, _W, drawer.sizeHint().height())
+        x = max(12, min(int(left), max(12, self.centralWidget().width() - _W - 12)))
+        drawer.setGeometry(x, top, _W, drawer.sizeHint().height())
 
     def _position_quick_drawer(self):
         if hasattr(self, "_quick_drawer"):
-            self._place_drawer(self._quick_drawer, 12)
+            x = max(12, self._drawer_btn.mapTo(self.centralWidget(), QPoint(0, 0)).x() - 8)
+            self._place_drawer(self._quick_drawer, x)
 
     def _position_ctrl_drawer(self):
         # Under its own header button rather than under the other one's.
