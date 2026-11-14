@@ -38,7 +38,10 @@ class UpdaterTests(unittest.TestCase):
     def test_git_fast_forward_and_backup(self):
         import subprocess
         def git(*args):
-            return subprocess.check_output(['git', '-C', str(self.root), *args], text=True).strip()
+            flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            return subprocess.check_output(
+                ['git', '-C', str(self.root), *args], text=True, creationflags=flags
+            ).strip()
         git('init', '-b', 'main')
         git('config', 'user.email', 'tests@example.invalid')
         git('config', 'user.name', 'Updater tests')

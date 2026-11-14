@@ -111,8 +111,10 @@ class LayoutContractTests(unittest.TestCase):
         beginning = text.index("    def _build_header(self)")
         end = text.index("    def _start_update(self)", beginning)
         header = text[beginning:end]
-        for item in ("_drawer_btn", "_ctrl_btn", "_update_btn", "_fs_btn"):
+        for item in ("_drawer_btn", "_update_btn", "_fs_btn"):
             self.assertIn(f"left_lay.addWidget(self.{item})", header)
+        self.assertIn("left_lay.addWidget(customize)", header)
+        self.assertIn("self._ctrl_btn.hide()", header)
         self.assertNotIn("left_lay.addWidget(self._state_chip)", header)
         self.assertIn("lay.addLayout(clock_col)", header)
 
