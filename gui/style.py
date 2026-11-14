@@ -21,11 +21,11 @@ from PyQt6.QtGui import QColor, QFont, QPolygonF
 
 from gui.theme import C
 
-DISPLAY_FAMILIES = ["Bahnschrift", "Segoe UI", "SF Pro Display", "Helvetica Neue",
+DISPLAY_FAMILIES = ["Segoe UI", "Bahnschrift", "SF Pro Display", "Helvetica Neue",
                     "Noto Sans", "DejaVu Sans"]
 MONO_FAMILIES = ["Cascadia Mono", "Consolas", "SF Mono", "Menlo", "DejaVu Sans Mono",
                  "Courier New"]
-DISPLAY_CSS = ("'Bahnschrift', 'Segoe UI', 'SF Pro Display', 'Helvetica Neue', "
+DISPLAY_CSS = ("'Segoe UI', 'Bahnschrift', 'SF Pro Display', 'Helvetica Neue', "
                "'Noto Sans', 'DejaVu Sans', sans-serif")
 MONO_CSS = "'Cascadia Mono', 'Consolas', 'SF Mono', 'Menlo', 'DejaVu Sans Mono', monospace"
 
@@ -46,6 +46,8 @@ def hud_font(size: float, weight=None, italic: bool = False) -> QFont:
     QFont("Courier New", size, weight). One point larger, because Courier
     New's letters are wide and light and the same size reads bigger."""
     f = QFont()
+    f.setStyleStrategy(QFont.StyleStrategy.PreferAntialias)
+    f.setHintingPreference(QFont.HintingPreference.PreferVerticalHinting)
     f.setFamilies(DISPLAY_FAMILIES)
     f.setPointSizeF(float(size) + 1.0)
     _apply_weight(f, weight)
@@ -56,6 +58,8 @@ def hud_font(size: float, weight=None, italic: bool = False) -> QFont:
 def mono_font(size: float, weight=None) -> QFont:
     """A monospace at a point size, for keys, codes and columns of figures."""
     f = QFont()
+    f.setStyleStrategy(QFont.StyleStrategy.PreferAntialias)
+    f.setHintingPreference(QFont.HintingPreference.PreferVerticalHinting)
     f.setFamilies(MONO_FAMILIES)
     f.setPointSizeF(float(size))
     _apply_weight(f, weight)
@@ -66,8 +70,10 @@ def px_font(px: float, weight=QFont.Weight.Normal, mono: bool = False,
             spacing: float = 0.0) -> QFont:
     """A face at a pixel size, for painted widgets that lay text out by pixel."""
     f = QFont()
+    f.setStyleStrategy(QFont.StyleStrategy.PreferAntialias)
+    f.setHintingPreference(QFont.HintingPreference.PreferVerticalHinting)
     f.setFamilies(MONO_FAMILIES if mono else DISPLAY_FAMILIES)
-    f.setPixelSize(max(1, int(px)))
+    f.setPixelSize(max(10, round(px)))
     _apply_weight(f, weight)
     if spacing:
         f.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, float(spacing))

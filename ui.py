@@ -105,6 +105,8 @@ class JarvisUI:
             QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
         self._app = QApplication.instance() or QApplication(sys.argv)
         self._app.setStyle("Fusion")
+        from gui.style import px_font
+        self._app.setFont(px_font(13))
         self._win = MainWindow(face_path)
         self.root = _RootShim(self._app)
         self._win.show()

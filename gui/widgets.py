@@ -128,7 +128,7 @@ class LogWidget(QTextEdit):
         # the cap is twice the old one-block-per-line figure.
         self.document().setMaximumBlockCount(1200)
         self.document().setDocumentMargin(10)
-        self.setFont(px_font(13))
+        self.setFont(px_font(15))
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setStyleSheet(f"""
             QTextEdit {{
@@ -200,7 +200,7 @@ class LogWidget(QTextEdit):
         if self.document().isEmpty():
             cur.setBlockFormat(head)
         else:
-            head.setTopMargin(9)
+            head.setTopMargin(15)
             cur.insertBlock(head)
         lf = QTextCharFormat()
         lf.setFont(px_font(10, QFont.Weight.DemiBold, spacing=1.6))
@@ -211,10 +211,11 @@ class LogWidget(QTextEdit):
         sf.setForeground(QBrush(qcol(C.TEXT_DIM)))
         cur.insertText("   " + time.strftime("%H:%M:%S"), sf)
         body = QTextBlockFormat()
-        body.setTopMargin(1)
+        body.setTopMargin(4)
+        body.setLineHeight(125, 1)
         cur.insertBlock(body)
         self._fmt = QTextCharFormat()
-        self._fmt.setFont(px_font(13))
+        self._fmt.setFont(px_font(15))
         self._fmt.setForeground(QBrush(text_col))
         self.setTextCursor(cur)
         self.ensureCursorVisible()

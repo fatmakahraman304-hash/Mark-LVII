@@ -1290,6 +1290,7 @@ class MainWindow(QMainWindow):
         self._drawer_btn = QPushButton("⚙  AYARLAR")
         self._drawer_btn.setStyleSheet(btn_css("primary"))
         self._drawer_btn.setMinimumHeight(36)
+        self._drawer_btn.setFont(px_font(12, QFont.Weight.DemiBold))
         self._drawer_btn.setCheckable(True)
         self._drawer_btn.setToolTip("Setup — things you set once")
         self._drawer_btn.clicked.connect(self._open_settings_page)
@@ -1302,6 +1303,7 @@ class MainWindow(QMainWindow):
         customize = QPushButton("ÖZELLEŞTİR")
         customize.setStyleSheet(btn_css("dim"))
         customize.setMinimumHeight(36)
+        customize.setFont(px_font(12, QFont.Weight.DemiBold))
         customize.clicked.connect(self._open_customize)
         left_lay.addWidget(customize)
         self._update_btn = QPushButton("GÜNCELLE")
@@ -1971,7 +1973,7 @@ class MainWindow(QMainWindow):
 
         self._input = QLineEdit()
         self._input.setPlaceholderText("Type a command or question…")
-        self._input.setFont(px_font(13))
+        self._input.setFont(px_font(15))
         self._input.setStyleSheet(f"""
             QLineEdit {{
                 background: transparent; color: {C.WHITE};
@@ -2008,7 +2010,7 @@ class MainWindow(QMainWindow):
 
         self._content_display = QTextEdit()
         self._content_display.setReadOnly(True)
-        self._content_display.setFont(px_font(13))
+        self._content_display.setFont(px_font(15))
         self._content_display.setMinimumHeight(60)
         self._content_display.setFrameShape(QFrame.Shape.NoFrame)
         self._content_display.setSizePolicy(

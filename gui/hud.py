@@ -209,10 +209,14 @@ class HudCanvas(QWidget):
         are out-of-focus lights, mostly cool with a few warm. The layout is
         seeded, so it is the same scene on every launch."""
         W, H = max(1, W), max(1, H)
-        pm = QPixmap(W, H)
+        dpr = self.devicePixelRatioF()
+        pm = QPixmap(round(W * dpr), round(H * dpr))
+        pm.setDevicePixelRatio(dpr)
         pm.fill(qcol(C.BG))
         p = QPainter(pm)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         cx = W / 2
 
         g = QRadialGradient(cx, H * 0.42, max(W, H) * 0.62)
@@ -592,11 +596,13 @@ class HudCanvas(QWidget):
         if not p.isActive():      # device not ready (e.g. 0-size during layout) — skip cleanly
             return
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         W, H = self.width(), self.height()
 
         # The backdrop is one cached pixmap, rebuilt only when the size or the
         # theme changes — so live re-theming still repaints it.
-        key = (W, H, C.PRI, C.BG, C.WHITE)
+        key = (W, H, self.devicePixelRatioF(), C.PRI, C.BG, C.WHITE)
         if self._grid_cache is None or self._grid_key != key:
             self._grid_cache = self._make_grid(W, H)
             self._grid_key = key
