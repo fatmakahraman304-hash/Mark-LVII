@@ -28,7 +28,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QApplication, QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit,
-    QMainWindow, QPushButton, QScrollArea, QSizePolicy, QSplitter,
+    QMainWindow, QGridLayout, QPushButton, QScrollArea, QSizePolicy, QSplitter,
     QGraphicsScene, QGraphicsView, QGraphicsPixmapItem,
     QStackedWidget, QTextEdit, QVBoxLayout, QWidget, QProgressBar, QSlider,
 )
@@ -1258,25 +1258,26 @@ class MainWindow(QMainWindow):
         w = HeaderBar()
         w.setFixedHeight(78)
         self._header = w
-        lay = QHBoxLayout(w)
-        lay.setContentsMargins(22, 12, 22, 12)
+        grid = QGridLayout(w)
+        grid.setContentsMargins(22, 12, 22, 12)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(2, 1)
+        left = QWidget(w)
+        left_lay = QHBoxLayout(left)
+        left_lay.setContentsMargins(0, 0, 0, 0)
+        left_lay.setSpacing(16)
+        right = QWidget(w)
+        lay = QHBoxLayout(right)
+        lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(10)
-        lay.addWidget(ArcLogo())
-
-        name_col = QVBoxLayout()
-        name_col.setSpacing(0)
-        display = self._assistant_name.upper()
-        self._title_lbl = QLabel(display)
-        self._title_lbl.setFont(px_font(24, QFont.Weight.Light, spacing=4.5))
-        self._title_lbl.setStyleSheet(f"color: {C.WHITE}; background: transparent;")
-        self._title_lbl.setToolTip(self._subtitle(display))
-        name_col.addWidget(self._title_lbl)
-        self._sub_lbl = QLabel(f"MURAT KAHRAMAN  /  PERSONAL EDITION  ·  {APP_VERSION}")
-        self._sub_lbl.setFont(px_font(9, QFont.Weight.DemiBold, spacing=2.2))
-        self._sub_lbl.setStyleSheet(f"color: {C.PRI_DIM}; background: transparent;")
-        name_col.addWidget(self._sub_lbl)
-        lay.addLayout(name_col)
-        lay.addSpacing(8)
+        lay.addStretch()
+        self._title_lbl = QLabel("J.A.R.V.I.S")
+        self._title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._title_lbl.setFont(px_font(27, QFont.Weight.DemiBold, spacing=5))
+        self._title_lbl.setStyleSheet(f"color: {C.PRI}; background: transparent;")
+        grid.addWidget(left, 0, 0)
+        grid.addWidget(self._title_lbl, 0, 1)
+        grid.addWidget(right, 0, 2)
 
         # Two drawers, and the split is by how often a thing is touched: the
         # ones you set once behind the gear, the everyday switches behind the
@@ -1305,11 +1306,8 @@ class MainWindow(QMainWindow):
         self._update_progress_sig.connect(self._update_progress)
         self._update_done_sig.connect(self._update_done)
         lay.addWidget(self._update_btn)
-        lay.addStretch()
-
         self._state_chip = StateChip()
-        lay.addWidget(self._state_chip)
-        lay.addStretch()
+        left_lay.addWidget(self._state_chip)
 
         clock_col = QVBoxLayout()
         clock_col.setSpacing(0)
@@ -1323,7 +1321,8 @@ class MainWindow(QMainWindow):
         self._date_lbl.setStyleSheet(f"color: {C.PRI_DIM}; background: transparent;")
         self._date_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
         clock_col.addWidget(self._date_lbl)
-        lay.addLayout(clock_col)
+        left_lay.addLayout(clock_col)
+        left_lay.addStretch()
         lay.addSpacing(4)
         self._fs_btn = IconButton("expand", 32)
         self._fs_btn.setToolTip("Fullscreen  [F11]")
@@ -2762,7 +2761,7 @@ class MainWindow(QMainWindow):
         self._assistant_name = name.strip() or "JARVIS"
         display = self._assistant_name.upper()
         self.setWindowTitle(f"{display} — {APP_VERSION}")
-        self._title_lbl.setText(display)
+        self._title_lbl.setText("J.A.R.V.I.S")
         self._title_lbl.setToolTip(self._subtitle(display))
         self._log._ai_name_lc = self._assistant_name.lower()
         self.hud._assistant_name = display
