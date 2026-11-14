@@ -112,45 +112,42 @@ def chamfer(r: QRectF, cut: float, corners=("tl", "br")) -> QPolygonF:
 
 
 def btn_css(kind: str = "dim", align: str = "left") -> str:
-    """Premium command controls: consistent radii, contrast and focus states.
+    """Stylesheet for a drawer/panel button.
 
-    All stylesheet colours come from C so the live accent picker keeps working.
-    """
-    pad = "padding: 0 14px;" if align == "left" else "padding: 0 10px;"
-    base = f"text-align: {align}; {pad} border-radius: 10px;"
+    kind: "primary" (the main action), "dim" (ordinary), "on" / "off" (a switch),
+    "choice" (one of two equal options — neither reads as disabled)."""
+    pad = "padding: 0 10px;" if align == "left" else "padding: 0 6px;"
+    base = f"text-align: {align}; {pad} border-radius: 6px;"
     if kind == "primary":
         return f"""
-            QPushButton {{ background: {C.PRI_GHO}; color: {C.WHITE};
-                border: 1px solid {C.PRI_DIM}; {base} }}
-            QPushButton:hover {{ background: {C.PANEL2}; border-color: {C.PRI}; }}
-            QPushButton:pressed {{ background: {C.PRI_GHO}; color: {C.PRI}; }}
-            QPushButton:focus {{ border-color: {C.PRI}; }}
+            QPushButton {{ background: {C.PRI_GHO}; color: {C.PRI};
+                border: 1px solid {C.PRI_DIM}; border-left: 3px solid {C.PRI}; {base} }}
+            QPushButton:hover {{ border-color: {C.PRI}; color: {C.WHITE}; }}
             QPushButton:disabled {{ color: {C.TEXT_DIM}; border-color: {C.BORDER}; }}"""
     if kind == "on":
         return f"""
             QPushButton {{ background: {C.PANEL2}; color: {C.GREEN};
-                border: 1px solid {C.GREEN_D}; {base} }}
-            QPushButton:hover, QPushButton:focus {{ border-color: {C.GREEN}; }}
+                border: 1px solid {C.GREEN_D}; border-left: 3px solid {C.GREEN}; {base} }}
+            QPushButton:hover {{ border-color: {C.GREEN}; }}
             QPushButton:disabled {{ color: {C.TEXT_DIM}; border-color: {C.BORDER}; }}"""
     if kind == "choice":
         return f"""
-            QPushButton {{ background: {C.PANEL2}; color: {C.TEXT_MED};
-                border: 1px solid {C.BORDER_A}; {base} }}
-            QPushButton:hover, QPushButton:focus {{ color: {C.WHITE}; border-color: {C.PRI_DIM}; }}
-            QPushButton:pressed {{ background: {C.PRI_GHO}; }}"""
+            QPushButton {{ background: {C.PANEL2}; color: {C.PRI};
+                border: 1px solid {C.BORDER_A}; border-left: 3px solid {C.PRI_DIM}; {base} }}
+            QPushButton:hover {{ color: {C.WHITE}; border-color: {C.BORDER_B}; }}"""
+    # "dim" and "off"
     return f"""
         QPushButton {{ background: {C.PANEL}; color: {C.TEXT_MED if kind == 'dim' else C.TEXT_DIM};
-            border: 1px solid {C.BORDER}; {base} }}
-        QPushButton:hover, QPushButton:focus {{ color: {C.WHITE};
-            background: {C.PANEL2}; border-color: {C.BORDER_B}; }}
-        QPushButton:pressed {{ background: {C.PRI_GHO}; }}
+            border: 1px solid {C.BORDER}; border-left: 3px solid {C.BORDER_A}; {base} }}
+        QPushButton:hover {{ color: {C.PRI}; border-color: {C.BORDER_B};
+            border-left: 3px solid {C.PRI_DIM}; }}
         QPushButton:disabled {{ color: {C.TEXT_DIM}; border-color: {C.BORDER}; }}"""
 
 
 def scroll_css() -> str:
     return f"""
-        QScrollBar:vertical {{ background: transparent; width: 7px; border: none; margin: 2px 0; }}
-        QScrollBar::handle:vertical {{ background: {C.BORDER_B}; min-height: 28px; border-radius: 3px; }}
+        QScrollBar:vertical {{ background: transparent; width: 6px; border: none; margin: 2px 0; }}
+        QScrollBar::handle:vertical {{ background: {C.BORDER_B}; min-height: 20px; }}
         QScrollBar::handle:vertical:hover {{ background: {C.PRI_DIM}; }}
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; border: none; }}
         QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}

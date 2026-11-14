@@ -1,6 +1,6 @@
 """Categorised settings with accessible, draggable switches."""
 from PyQt6.QtCore import Qt, QTimer, QRectF
-from PyQt6.QtGui import QColor, QPainter, QFont, QPen
+from PyQt6.QtGui import QColor, QPainter
 from PyQt6.QtWidgets import (QAbstractButton, QDialog, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QScrollArea, QWidget, QStackedWidget, QFrame)
 from gui.theme import C
@@ -20,19 +20,15 @@ class Toggle(QAbstractButton):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        active = self.isChecked()
-        track = QRectF(1.5, 2.5, 51, 25)
-        p.setBrush(QColor(C.PRI_GHO if active else C.PANEL2))
-        p.setPen(QPen(QColor(C.PRI if active else C.BORDER_B), 1.2))
-        p.drawRoundedRect(track, 12.5, 12.5)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(C.WHITE if active else C.TEXT_DIM))
-        p.drawEllipse(QRectF(29 if active else 5, 6, 18, 18))
+        p.setBrush(QColor(C.PRI if self.isChecked() else C.BORDER))
+        p.drawRoundedRect(QRectF(1, 2, 52, 26), 13, 13)
+        p.setBrush(QColor(C.BG if self.isChecked() else C.WHITE))
+        p.drawEllipse(QRectF(29 if self.isChecked() else 5, 6, 18, 18))
         if self.hasFocus():
             p.setBrush(Qt.BrushStyle.NoBrush)
-            p.setPen(QPen(QColor(C.PRI), 1))
-            p.drawRoundedRect(QRectF(0.5, 0.5, 53, 29), 14, 14)
-        p.end()
+            p.setPen(QColor(C.WHITE))
+            p.drawRoundedRect(QRectF(0.5, .5, 53, 29), 14, 14)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -61,38 +57,28 @@ class SettingsPage(QDialog):
             QDialog {{ background: {C.BG}; }}
             QLabel {{ color: {C.TEXT}; background: transparent; }}
             QWidget#page, QWidget#body {{ background: {C.BG}; }}
-            QFrame#card {{ background: {C.PANEL}; border: 1px solid {C.BORDER};
-                border-radius: 14px; }}
-            QFrame#card:hover {{ border-color: {C.BORDER_B}; background: {C.PANEL2}; }}
-            QFrame#nav {{ background: {C.PANEL}; border: 1px solid {C.BORDER};
-                border-radius: 16px; }}
-            QPushButton {{ color: {C.TEXT_MED}; background: {C.PANEL2};
-                border: 1px solid {C.BORDER}; border-radius: 10px; padding: 10px 14px; }}
-            QPushButton:hover {{ border-color: {C.PRI_DIM}; color: {C.WHITE}; }}
-            QPushButton:focus {{ border-color: {C.PRI}; }}
-            QPushButton:pressed {{ background: {C.PRI_GHO}; }}
-            QPushButton#category {{ text-align: left; border: 1px solid transparent;
-                background: transparent; padding: 12px 14px; border-radius: 9px; }}
-            QPushButton#category:hover {{ background: {C.PANEL2}; color: {C.WHITE}; }}
-            QPushButton#category:checked {{ background: {C.PRI_GHO}; color: {C.WHITE};
-                border-color: {C.BORDER_B}; }}
+            QFrame#card {{ background: {C.PANEL}; border: 1px solid {C.BORDER}; border-radius: 12px; }}
+            QFrame#nav {{ background: {C.PANEL}; border-radius: 14px; }}
+            QPushButton {{ color: {C.TEXT}; background: {C.PANEL2}; border: 1px solid {C.BORDER}; border-radius: 8px; padding: 9px 14px; }}
+            QPushButton:hover {{ border-color: {C.PRI}; color: {C.WHITE}; }}
+            QPushButton#category {{ text-align: left; border: none; background: transparent; padding: 13px; }}
+            QPushButton#category:checked {{ background: {C.PRI_GHO}; color: {C.PRI}; }}
             QScrollArea {{ border: none; background: transparent; }}
-            QScrollBar:vertical {{ background: transparent; width: 7px; margin: 2px; }}
-            QScrollBar::handle:vertical {{ background: {C.BORDER_B};
-                border-radius: 3px; min-height: 28px; }}
+            QScrollBar:vertical {{ background: transparent; width: 6px; margin: 2px; }}
+            QScrollBar::handle:vertical {{ background: {C.BORDER_B}; border-radius: 3px; min-height: 25px; }}
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
         ''')
         root = QVBoxLayout(self)
-        root.setContentsMargins(28, 24, 28, 22)
-        root.setSpacing(20)
+        root.setContentsMargins(26, 22, 26, 20)
+        root.setSpacing(22)
         top = QHBoxLayout()
         heading = QVBoxLayout()
-        brand = QLabel('J.A.R.V.I.S  /  MARK LVII  /  KONTROL MERKEZİ')
+        brand = QLabel('J.A.R.V.I.S  /  KONTROL MERKEZİ')
         brand.setFont(px_font(10, spacing=2))
         brand.setStyleSheet(f'color: {C.PRI};')
         heading.addWidget(brand)
         title = QLabel('Ayarlar')
-        title.setFont(px_font(32, QFont.Weight.DemiBold))
+        title.setFont(px_font(30))
         heading.addWidget(title)
         top.addLayout(heading)
         top.addStretch()
@@ -104,9 +90,9 @@ class SettingsPage(QDialog):
         content.setSpacing(24)
         nav = QFrame()
         nav.setObjectName('nav')
-        nav.setFixedWidth(204)
+        nav.setFixedWidth(190)
         navigation = QVBoxLayout(nav)
-        navigation.setContentsMargins(12, 17, 12, 17)
+        navigation.setContentsMargins(10, 16, 10, 16)
         navigation.setSpacing(6)
         content.addWidget(nav)
         self.stack = QStackedWidget()
@@ -122,8 +108,6 @@ class SettingsPage(QDialog):
             button = QPushButton(name)
             button.setObjectName('category')
             button.setCheckable(True)
-            button.setMinimumHeight(44)
-            button.setCursor(Qt.CursorShape.PointingHandCursor)
             self.categories.append(button)
             navigation.addWidget(button)
             def select():
@@ -140,7 +124,7 @@ class SettingsPage(QDialog):
             rows.setContentsMargins(0, 0, 8, 0)
             rows.setSpacing(12)
             label = QLabel(name)
-            label.setFont(px_font(23, QFont.Weight.DemiBold))
+            label.setFont(px_font(22))
             rows.addWidget(label)
             sub = QLabel(subtitle)
             sub.setWordWrap(True)
@@ -154,12 +138,12 @@ class SettingsPage(QDialog):
             frame = QFrame()
             frame.setObjectName('card')
             row = QHBoxLayout(frame)
-            row.setContentsMargins(20, 18, 20, 18)
+            row.setContentsMargins(18, 17, 18, 17)
             row.setSpacing(18)
             text = QVBoxLayout()
             text.setSpacing(6)
             title_lbl = QLabel(title)
-            title_lbl.setFont(px_font(14, QFont.Weight.DemiBold))
+            title_lbl.setFont(px_font(14))
             text.addWidget(title_lbl)
             description = QLabel(detail)
             description.setWordWrap(True)

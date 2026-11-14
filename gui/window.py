@@ -1264,36 +1264,27 @@ class MainWindow(QMainWindow):
 
     def _build_header(self) -> QWidget:
         w = HeaderBar()
-        w.setFixedHeight(84)
+        w.setFixedHeight(78)
         self._header = w
         grid = QGridLayout(w)
-        grid.setContentsMargins(20, 10, 20, 10)
+        grid.setContentsMargins(22, 12, 22, 12)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(2, 1)
         left = QWidget(w)
         left_lay = QHBoxLayout(left)
         left_lay.setContentsMargins(0, 0, 0, 0)
-        left_lay.setSpacing(7)
+        left_lay.setSpacing(8)
         right = QWidget(w)
         lay = QHBoxLayout(right)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(10)
         lay.addStretch()
-        brand_stack = QVBoxLayout()
-        brand_stack.setContentsMargins(0, 0, 0, 0)
-        brand_stack.setSpacing(1)
         self._title_lbl = QLabel("J.A.R.V.I.S")
         self._title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._title_lbl.setFont(px_font(27, QFont.Weight.DemiBold, spacing=4.5))
-        self._title_lbl.setStyleSheet(f"color: {C.WHITE}; background: transparent;")
-        brand_stack.addWidget(self._title_lbl)
-        brand_caption = QLabel("M A R K  L V I I   /   P E R S O N A L   A I")
-        brand_caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        brand_caption.setFont(px_font(8, QFont.Weight.DemiBold))
-        brand_caption.setStyleSheet(f"color: {C.PRI_DIM}; background: transparent;")
-        brand_stack.addWidget(brand_caption)
+        self._title_lbl.setFont(px_font(27, QFont.Weight.DemiBold, spacing=5))
+        self._title_lbl.setStyleSheet(f"color: {C.PRI}; background: transparent;")
         grid.addWidget(left, 0, 0)
-        grid.addLayout(brand_stack, 0, 1)
+        grid.addWidget(self._title_lbl, 0, 1)
         grid.addWidget(right, 0, 2)
 
         # Two drawers, and the split is by how often a thing is touched: the
@@ -1302,7 +1293,7 @@ class MainWindow(QMainWindow):
         # read at a glance.
         self._drawer_btn = QPushButton("⚙  AYARLAR")
         self._drawer_btn.setStyleSheet(btn_css("primary"))
-        self._drawer_btn.setMinimumHeight(38)
+        self._drawer_btn.setMinimumHeight(36)
         self._drawer_btn.setFont(px_font(12, QFont.Weight.DemiBold))
         self._drawer_btn.setCheckable(True)
         self._drawer_btn.setToolTip("Setup — things you set once")
@@ -1312,21 +1303,21 @@ class MainWindow(QMainWindow):
         self._ctrl_btn.setCheckable(True)
         self._ctrl_btn.setToolTip("Controls — the everyday switches")
         self._ctrl_btn.clicked.connect(self._toggle_controls)
-        left_lay.addWidget(self._ctrl_btn)
+        self._ctrl_btn.hide()
         customize = QPushButton("ÖZELLEŞTİR")
         customize.setStyleSheet(btn_css("dim"))
-        customize.setMinimumHeight(38)
+        customize.setMinimumHeight(36)
         customize.setFont(px_font(12, QFont.Weight.DemiBold))
         customize.clicked.connect(self._open_customize)
         left_lay.addWidget(customize)
         self._update_btn = QPushButton("GÜNCELLE")
         self._update_btn.setFont(px_font(10, QFont.Weight.DemiBold, spacing=1))
-        self._update_btn.setMinimumHeight(36)
+        self._update_btn.setMinimumHeight(32)
         self._update_btn.setStyleSheet(
-            f"QPushButton {{ color: {C.PRI}; background: {C.PRI_GHO}; "
-            f"border: 1px solid {C.BORDER_B}; border-radius: 10px; padding: 0 13px; }}"
-            f"QPushButton:hover {{ color: {C.WHITE}; border-color: {C.PRI}; background: {C.PANEL2}; }}"
-            f"QPushButton:disabled {{ color: {C.TEXT_DIM}; border-color: {C.BORDER}; }}")
+            f"QPushButton {{ color: {C.WHITE}; background: {C.BG}; "
+            f"border: 1px solid {C.PRI_DIM}; border-radius: 6px; padding: 0 12px; }}"
+            f"QPushButton:hover {{ border-color: {C.WHITE}; }}"
+            f"QPushButton:disabled {{ color: {C.PRI_DIM}; }}")
         self._update_btn.setToolTip("GitHub’ı kontrol et ve mevcut dalı güncelle")
         self._update_btn.clicked.connect(self._start_update)
         self._update_progress_sig.connect(self._update_progress)
