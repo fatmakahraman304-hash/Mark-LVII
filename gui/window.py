@@ -1285,16 +1285,23 @@ class MainWindow(QMainWindow):
         # ones you set once behind the gear, the everyday switches behind the
         # sliders. Separating them is what keeps each list short enough to
         # read at a glance.
-        self._drawer_btn = IconButton("gear", 32)
+        self._drawer_btn = QPushButton("⚙  AYARLAR")
+        self._drawer_btn.setStyleSheet(btn_css("primary"))
+        self._drawer_btn.setMinimumHeight(36)
         self._drawer_btn.setCheckable(True)
         self._drawer_btn.setToolTip("Setup — things you set once")
-        self._drawer_btn.clicked.connect(self._toggle_drawer)
+        self._drawer_btn.clicked.connect(self._open_settings_page)
         left_lay.addWidget(self._drawer_btn)
         self._ctrl_btn = IconButton("sliders", 32)
         self._ctrl_btn.setCheckable(True)
         self._ctrl_btn.setToolTip("Controls — the everyday switches")
         self._ctrl_btn.clicked.connect(self._toggle_controls)
-        left_lay.addWidget(self._ctrl_btn)
+        self._ctrl_btn.hide()
+        customize = QPushButton("ÖZELLEŞTİR")
+        customize.setStyleSheet(btn_css("dim"))
+        customize.setMinimumHeight(36)
+        customize.clicked.connect(self._open_customize)
+        left_lay.addWidget(customize)
         self._update_btn = QPushButton("GÜNCELLE")
         self._update_btn.setFont(px_font(10, QFont.Weight.DemiBold, spacing=1))
         self._update_btn.setMinimumHeight(32)
@@ -1553,6 +1560,8 @@ class MainWindow(QMainWindow):
         self._tasks_stack.addWidget(scroll)
         self._tasks_stack.addWidget(r_scroll)
         self._location_panel = LocationPanel()
+        self._location_panel.map.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._location_panel.map.clicked.connect(self._explore_city_map)
         self._tasks_stack.addWidget(self._location_panel)
         self._tasks_stack.setCurrentIndex(2)
         self._tasks_panel.body.addWidget(self._tasks_stack)
@@ -1842,6 +1851,36 @@ class MainWindow(QMainWindow):
                 pass
             self._wake_btns_sig.emit()
         threading.Thread(target=work, daemon=True, name="wake-state-warm").start()
+
+    def _open_settings_page(self):
+        from gui.settings_page import SettingsPage
+        self._drawer_btn.setChecked(False)
+        if not hasattr(self, '_settings_page'):
+            self._settings_page = SettingsPage(self)
+        self._settings_page.show()
+        self._settings_page.raise_()
+
+    def _explore_city_map(self):
+        from gui.location_map import CityMap
+        if not hasattr(self, '_city_explorer'):
+            self._city_explorer = QWidget()
+            layout = QVBoxLayout(self._city_explorer)
+            back = QPushButton('CORE’a dön')
+            back.clicked.connect(lambda: self._hud_cam_stack.setCurrentIndex(0))
+            layout.addWidget(back)
+            layout.addWidget(QLabel('Haritayı sürükleyerek gezin · Tekerlekle yakınlaştırın'))
+            self._large_city_map = CityMap(self._location_panel.network)
+            self._large_city_map.interactive = True
+            self._large_city_map.setCursor(Qt.CursorShape.OpenHandCursor)
+            layout.addWidget(self._large_city_map, 1)
+            layout.addWidget(QLabel('© OpenStreetMap contributors · Konum IP üzerinden yaklaşıktır'))
+            self._hud_cam_stack.addWidget(self._city_explorer)
+        small = self._location_panel.map
+        self._large_city_map.zoom = small.zoom
+        self._large_city_map.center = small.center or (2 ** small.zoom / 2, 2 ** small.zoom / 2)
+        self._hud_cam_stack.setCurrentWidget(self._city_explorer)
+        self._large_city_map.load_tiles()
+        self._large_city_map.update()
 
     def _toggle_drawer(self, checked: bool):
         if checked:

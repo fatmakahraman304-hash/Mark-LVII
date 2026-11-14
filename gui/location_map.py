@@ -5,7 +5,7 @@ import json
 import math
 import time
 
-from PyQt6.QtCore import QPointF, QRectF, QStandardPaths, Qt, QTimer, QUrl
+from PyQt6.QtCore import QPointF, QRectF, QStandardPaths, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPen, QPixmap
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkDiskCache, QNetworkReply, QNetworkRequest
 from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
@@ -38,6 +38,7 @@ def tile_position(lat: float, lon: float, zoom: int) -> tuple[float, float]:
 
 
 class CityMap(QWidget):
+    clicked = pyqtSignal()
     """Only visible OSM tiles are requested; HTTP caching respects server headers."""
 
     def __init__(self, network, parent=None):
@@ -52,6 +53,32 @@ class CityMap(QWidget):
         self._reload = QTimer(self)
         self._reload.setSingleShot(True)
         self._reload.timeout.connect(self.load_tiles)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = event.position()
+            if not getattr(self, 'interactive', False):
+                self.clicked.emit()
+
+    def mouseMoveEvent(self, event):
+        if getattr(self, 'interactive', False) and self.center and event.buttons() & Qt.MouseButton.LeftButton:
+            delta = event.position() - self._drag_pos
+            self._drag_pos = event.position()
+            n = 2 ** self.zoom
+            self.center = ((self.center[0] - delta.x() / 256) % n, max(0, min(n, self.center[1] - delta.y() / 256)))
+            self.update()
+            self._reload.start(120)
+
+    def wheelEvent(self, event):
+        if not getattr(self, 'interactive', False) or self.center is None:
+            return
+        zoom = max(2, min(18, self.zoom + (1 if event.angleDelta().y() > 0 else -1)))
+        factor = 2 ** (zoom - self.zoom)
+        self.center = (self.center[0] * factor, self.center[1] * factor)
+        self.zoom = zoom
+        self.update()
+        self._reload.start(120)
+        event.accept()
 
     def set_location(self, lat, lon):
         self.center = tile_position(lat, lon, self.zoom)
