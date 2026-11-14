@@ -872,3 +872,35 @@ def parse_json(raw: str, default=None):
                 continue
             return value
     return default
+
+
+IMAGE_MODEL = "gemini-3.1-flash-lite-image"
+
+
+def generate_picture(prompt: str, source: Path | None = None) -> tuple[bytes, str]:
+    """Dedicated image route: no text/live fallback, bounded request deadline."""
+    import mimetypes
+    from google.genai import types
+    contents = [prompt]
+    if source is not None:
+        mime = mimetypes.guess_type(str(source))[0]
+        if mime not in {"image/png", "image/jpeg", "image/webp"}:
+            raise ValueError("PNG, JPEG veya WebP resmi gerekli.")
+        if source.stat().st_size > 15 * 1024 * 1024:
+            raise ValueError("Düzenlenecek resim 15 MB sınırını aşıyor.")
+        contents.append(types.Part.from_bytes(data=source.read_bytes(), mime_type=mime))
+    c = client(timeout_ms=120_000, key=api_key(refresh=True))
+    try:
+        response = c.models.generate_content(
+            model=IMAGE_MODEL, contents=contents,
+            config=types.GenerateContentConfig(response_modalities=["TEXT", "IMAGE"]))
+        for candidate in response.candidates or []:
+            for part in getattr(candidate.content, "parts", None) or []:
+                if getattr(part, "thought", False):
+                    continue
+                blob = getattr(part, "inline_data", None)
+                if blob and blob.mime_type in {"image/png", "image/jpeg", "image/webp"} and blob.data:
+                    return bytes(blob.data), blob.mime_type
+        raise RuntimeError("Model resim döndürmedi; istek engellenmiş veya tamamlanamamış olabilir.")
+    finally:
+        c.close()
