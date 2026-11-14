@@ -1366,22 +1366,31 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, "JARVIS Güncelleme", message)
 
     def _restart_after_update(self):
+        """An update restarts JARVIS automatically, after its process exits.
+
+        A supervised OSIRIS launch uses exit code 75; a normal launch uses a
+        separate helper. Never close the current GUI if the helper cannot
+        start, so users can still see the error and restart manually.
+        """
         try:
-            if os.environ.get("JARVIS_MANAGED_RESTART") != "1":
-                project = Path(__file__).resolve().parents[1]
-                logs = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".local/share"))) / "Jarvis/logs"
-                logs.mkdir(parents=True, exist_ok=True)
-                with (logs / "restart.log").open("a", encoding="utf-8") as log:
-                    subprocess.Popen(
-                        [sys.executable, str(project / "tools/restart_app.py"), str(os.getpid()), str(project)],
-                        cwd=project, stdout=log, stderr=subprocess.STDOUT,
-                        creationflags=0x08000000 if os.name == "nt" else 0,
-                        start_new_session=os.name != "nt")
+            from core.restart_manager import schedule_restart
+            project = Path(__file__).resolve().parents[1]
+            schedule_restart(project, os.getpid(), executable=sys.executable)
             self._restart_requested = True
             QApplication.instance().quit()
         except Exception as exc:
-            self._log.append_log(f"SYS: Otomatik yeniden başlatma başarısız: {exc}. JARVIS’i yeniden açın.")
-
+            self._restart_requested = False
+            self._update_btn.setText("ELLE YENİDEN AÇ")
+            self._log.append_log(
+                f"SYS: Otomatik yeniden başlatma başarısız: {exc}. "
+                "JARVIS'i kapatıp tekrar açın."
+            )
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self, "JARVIS Yeniden Başlatma",
+                "Güncelleme uygulandı ancak otomatik yeniden başlatılamadı. "
+                "Lütfen JARVIS'i kapatıp tekrar açın.\n\n" + str(exc)
+            )
 
     def _tick_clock(self):
         self._clock_lbl.setText(time.strftime("%H:%M:%S"))
