@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark"><title>J.A.R.V.I.S. · Gemini USB Anahtar Kasası</title>
+<style>
+:root{font:17px system-ui,Arial;color:#e7f8ff;background:#061521}*{box-sizing:border-box}body{margin:0 auto;padding:32px 18px;max-width:780px}
+h1{color:#82dcff;letter-spacing:.12em}section{background:#0e2b40;border:1px solid #347c9c;border-radius:16px;padding:24px}
+label{display:block;margin:16px 0 6px}input,button{font:inherit;border-radius:9px;padding:13px;width:100%}
+input{background:#081b2d;color:#fff;border:1px solid #63afce}button{background:#7ce2ff;color:#001b27;border:0;font-weight:bold;margin-top:20px;cursor:pointer}
+button:disabled{opacity:.5}.muted{color:#afcbd9}.ok{color:#b2eab9}.warn{color:#ffda95}
+</style></head><body><h1>J.A.R.V.I.S.</h1>
+<p>GEMINI USB · Anahtarını laptopunda bir kez şifrele</p><section>
+<p class="muted">Bu sayfa tamamen çevrimdışı çalışır. Anahtar Google'a, GitHub'a veya başka bir sunucuya gönderilmez. Kaydedilen dosya AES-256-GCM ile şifrelenir.</p>
+<label for="key">Gemini API anahtarın</label>
+<input id="key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="AI Studio'dan aldığın anahtar">
+<label for="pass">USB kasası şifren (en az 10 karakter)</label>
+<input id="pass" type="password" autocomplete="new-password" placeholder="Bu şifre yeni cihazda gerekli">
+<label for="confirm">Şifreyi tekrar yaz</label>
+<input id="confirm" type="password" autocomplete="new-password">
+<button id="save">Şifreli Gemini anahtar dosyasını oluştur</button>
+<p id="status" role="status"></p></section>
+<p class="muted">Oluşacak <code>jarvis-key.enc.json</code> dosyasını USB belleğine kopyala. Bir Android TV/projeksiyonda JARVIS uygulamasını ilk kez kurarken bu dosyayı seçip kasanın şifresini gir. Her marka televizyonda uygulama açılması garanti değildir.</p>
+<script>
+(()=>{"use strict";
+const $=id=>document.getElementById(id);
+const b64=bytes=>btoa(String.fromCharCode(...bytes));
+$("save").onclick=async()=>{
+  const key=$("key").value.trim(),pass=$("pass").value,confirm=$("confirm").value;
+  const status=$("status");status.className="warn";status.textContent="";
+  if(!window.crypto||!crypto.subtle){status.textContent="Güvenli şifreleme API'si yok. Bu dosyayı Chrome'da aç.";return}
+  if(!/^[\x21-\x7e]{20,220}$/.test(key)){status.textContent="Geçerli API anahtarını gir (boşluk içeremez).";return}
+  if(pass.length<10||pass.length>100||!(/^[\x20-\x7e]+$/.test(pass))){status.textContent="Şifre 10-100 karakter olmalı; Türkçe özel karakter kullanma.";return}
+  if(pass!==confirm){status.textContent="Şifreler eşleşmiyor.";return}
+  $("save").disabled=true;
+  try{
+    const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+    const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(pass),"PBKDF2",false,["deriveKey"]);
+    const derived=await crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:250000,hash:"SHA-256"},material,{name:"AES-GCM",length:256},false,["encrypt"]);
+    const ciphertext=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv,tagLength:128},derived,new TextEncoder().encode(key)));
+    const vault=JSON.stringify({version:1,kdf:"PBKDF2-SHA256",iterations:250000,salt:b64(salt),iv:b64(iv),ciphertext:b64(ciphertext)},null,2);
+    const blob=new Blob([vault],{type:"application/json"});
+    const url=URL.createObjectURL(blob),a=document.createElement("a");
+    a.href=url;a.download="jarvis-key.enc.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
+    $("key").value="";$("pass").value="";$("confirm").value="";
+    status.className="ok";status.textContent="Şifreli dosya indirildi. İndirilenler'den USB belleğine kopyala.";
+  }catch(e){status.textContent="Şifreleme başarısız. Tarayıcının güvenli Web Crypto desteğini kontrol et."}
+  finally{$("save").disabled=false}
+};
+})();
+</script></body></html>
