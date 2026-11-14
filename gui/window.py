@@ -178,8 +178,9 @@ class MainWindow(QMainWindow):
         body.setContentsMargins(18, 18, 18, 18)
         body.setSpacing(16)
 
-        self._right_panel = self._build_right_panel()
-        body.addWidget(self._right_panel, stretch=0)
+        # Original left sidebar: systems, telemetry, status and tasks.
+        self._left_panel = self._build_left_panel()
+        body.addWidget(self._left_panel, stretch=0)
 
         # Center column: HUD + resizable content panel via QSplitter
         self.hud = HudCanvas(face_path, _display)
@@ -371,9 +372,9 @@ class MainWindow(QMainWindow):
         self._center_split.setCollapsible(0, False)
         body.addWidget(self._center_split, stretch=5)
 
-        # System telemetry now lives to the right; daily controls and chat to the left.
-        self._left_panel = self._build_left_panel()
-        body.addWidget(self._left_panel, stretch=0)
+        # Original right sidebar: conversations, command input and microphone.
+        self._right_panel = self._build_right_panel()
+        body.addWidget(self._right_panel, stretch=0)
 
         root.addLayout(body, stretch=1)
         root.addWidget(self._build_footer())
@@ -486,7 +487,7 @@ class MainWindow(QMainWindow):
         pw = _CameraPreview._W
         ph = self._cam_preview.height()
         self._cam_preview.setGeometry(
-            cw.width() - self._left_panel.width() - pw - 22,
+            cw.width() - self._right_panel.width() - pw - 22,
             cw.height() - ph - 28,
             pw, ph,
         )
@@ -1202,7 +1203,7 @@ class MainWindow(QMainWindow):
         pw = _CameraPreview._W
         ph = self._cam_preview.height() or _CameraPreview._H
         self._cam_preview.setGeometry(
-            cw.width() - self._left_panel.width() - pw - 22,
+            cw.width() - self._right_panel.width() - pw - 22,
             cw.height() - ph - 28,
             pw, ph,
         )
@@ -1405,12 +1406,10 @@ class MainWindow(QMainWindow):
         """Side columns grow with the window, within limits, so the centre keeps
         the space a larger window was opened for."""
         W = self.width()
-        if hasattr(self, "_right_panel"):
-            # Communications + command inputs are now on the LEFT.
-            self._right_panel.setFixedWidth(max(290, min(460, int(W * 0.27))))
         if hasattr(self, "_left_panel"):
-            # Gauges, system status and tasks are now on the RIGHT.
             self._left_panel.setFixedWidth(max(190, min(300, int(W * 0.18))))
+        if hasattr(self, "_right_panel"):
+            self._right_panel.setFixedWidth(max(290, min(460, int(W * 0.27))))
         # The network graph is the first thing to give up its space: below this
         # height the gauges and the task list need it more, and the rate itself
         # is still in STATUS.
