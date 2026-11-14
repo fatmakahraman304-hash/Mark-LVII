@@ -3,7 +3,7 @@ on:
   push:
     branches: [main, feature/osiris-world-command]
   pull_request:
-    paths: ["plugins/osiris*.py", "gui/**", "ui.py", "requirements.txt", "integrations/osiris/**", "tools/*osiris.py", "tests/test_osiris*", "tests/test_location_map.py", ".github/workflows/osiris-plugin.yml"]
+    paths: ["plugins/**", "actions/**", "core/**", "gui/**", "ui.py", "requirements.txt", "integrations/osiris/**", "tools/*osiris.py", "tests/**", "tests/test_location_map.py", ".github/workflows/osiris-plugin.yml"]
 permissions:
   contents: read
 jobs:
