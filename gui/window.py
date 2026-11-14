@@ -1357,8 +1357,30 @@ class MainWindow(QMainWindow):
         self._update_btn.setText("YENİDEN AÇ" if changed else "GÜNCELLE")
         self._update_btn.setToolTip(message)
         self._log.append_log(f"SYS: {message}")
+        if changed:
+            self._update_btn.setText("YENİDEN BAŞLATILIYOR…")
+            QTimer.singleShot(1500, self._restart_after_update)
+            return
         from PyQt6.QtWidgets import QMessageBox
         QMessageBox.information(self, "JARVIS Güncelleme", message)
+
+    def _restart_after_update(self):
+        try:
+            if os.environ.get("JARVIS_MANAGED_RESTART") != "1":
+                project = Path(__file__).resolve().parents[1]
+                logs = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".local/share"))) / "Jarvis/logs"
+                logs.mkdir(parents=True, exist_ok=True)
+                with (logs / "restart.log").open("a", encoding="utf-8") as log:
+                    subprocess.Popen(
+                        [sys.executable, str(project / "tools/restart_app.py"), str(os.getpid()), str(project)],
+                        cwd=project, stdout=log, stderr=subprocess.STDOUT,
+                        creationflags=0x08000000 if os.name == "nt" else 0,
+                        start_new_session=os.name != "nt")
+            self._restart_requested = True
+            QApplication.instance().quit()
+        except Exception as exc:
+            self._log.append_log(f"SYS: Otomatik yeniden başlatma başarısız: {exc}. JARVIS’i yeniden açın.")
+
 
     def _tick_clock(self):
         self._clock_lbl.setText(time.strftime("%H:%M:%S"))

@@ -1700,7 +1700,7 @@ class JarvisLive:
                             await asyncio.sleep(1.5)
                     await asyncio.gather(_goodbye(), self._wrap_up())
                     self._stop_engines()
-                    _exit_process(0)
+                    _exit_process(75 if getattr(ui._win, "_restart_requested", False) else 0)
                 self._keep_task(asyncio.create_task(_do_shutdown()))
 
             elif self._action_registry.has(name):
@@ -3072,7 +3072,7 @@ def main():
             jarvis.finish()
         except Exception as e:
             print(f"[JARVIS] finish: {e!r}")
-    _exit_process(0)
+    _exit_process(75 if getattr(ui._win, "_restart_requested", False) else 0)
 
 if __name__ == "__main__":
     main()

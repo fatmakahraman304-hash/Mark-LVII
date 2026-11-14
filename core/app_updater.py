@@ -189,6 +189,6 @@ def update(root=ROOT, progress=lambda message: None):
                 raise RuntimeError('Güncelleme sonucu doğrulanamadı.')
         else:
             _apply_zip(root, files, sha, branch)
-        return True, f'Güncellendi · {sha[:8]}. Yeni sürüm için JARVIS’i kapatıp yeniden açın.'
+        return True, f'Güncellendi · {sha[:8]}. JARVIS otomatik yeniden başlatılıyor.'
     finally:
         lock.unlink(missing_ok=True)

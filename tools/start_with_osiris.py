@@ -75,7 +75,7 @@ def main():
     log_dir = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".local/share"))) / "Jarvis" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     url = f"http://127.0.0.1:{args.port}/"
-    env = dict(os.environ, JARVIS_OSIRIS_URL=url, NEXT_TELEMETRY_DISABLED="1")
+    env = dict(os.environ, JARVIS_OSIRIS_URL=url, NEXT_TELEMETRY_DISABLED="1", JARVIS_MANAGED_RESTART="1")
     server = jarvis = None
     log_path = log_dir / "osiris.log"
     print("OSIRIS log:", log_path, flush=True)
@@ -90,7 +90,12 @@ def main():
                 return
             jarvis = subprocess.Popen([sys.executable, "main.py"], cwd=project, env=env)
             warned = False
-            while jarvis.poll() is None:
+            while True:
+                code = jarvis.poll()
+                if code == 75:
+                    jarvis = subprocess.Popen([sys.executable, "main.py"], cwd=project, env=env)
+                elif code is not None:
+                    break
                 if server.poll() is not None and not warned:
                     print("OSIRIS stopped. JARVIS remains running; map requests may fail.", flush=True)
                     warned = True
