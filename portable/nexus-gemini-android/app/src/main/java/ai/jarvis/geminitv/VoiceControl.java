@@ -9,7 +9,7 @@ public final class VoiceControl {
 
     public static Command classify(String utterance) {
         if (utterance == null) return Command.NONE;
-        String cmd = utterance.toLowerCase(new Locale("tr", "TR"))
+        String cmd = utterance.toLowerCase(Locale.ROOT).replace("\u0307", "")
                 .replaceAll("[^\\p{L}\\p{N}\\s]", " ")
                 .replaceAll("\\s+", " ").trim();
         switch (cmd) {
