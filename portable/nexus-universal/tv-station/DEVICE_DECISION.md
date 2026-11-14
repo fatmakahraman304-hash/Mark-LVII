@@ -12,7 +12,7 @@
 ## Hardware gate
 - Recommend **at least 16 GB RAM** and compatible CPU; a sufficiently capable GPU improves speed.
 - 8 GB VRAM helps Qwen3 8B, but actual throughput depends on CPU/GPU, quantization and context.
-- Projector's HDMI input must be accessible. USB power output may not suffice to power a mini PC: use its own adapter.
+- Projector's HDMI input must be accessible. USB power output may not suffice to power a mini PC: use its own adapter. Use a keyboard/air mouse connected to the mini PC; TV remote control is not assumed.
 - The target mini PC must have its **own copy** of Ollama and model downloaded; laptop's installation does not transfer.
 - TV Station listens on \`127.0.0.1:18767\` on that host only. It is not remotely reachable from a TV's Android browser; HDMI mirrors the host UI.
 
