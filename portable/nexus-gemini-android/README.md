@@ -1,64 +1,38 @@
-# JARVIS NEXUS Gemini Android TV / Projector client (prototype)
+# JARVIS NEXUS Gemini Android TV/Projector (passwordless test build)
 
-This is the **Gemini API** alternative to the local Ollama TV Station.
-It does **not** require Qwen, Ollama, a laptop or a mini PC after installation.
-
-## Build
-
-Android Studio (JDK 17, Android SDK 35) or GitHub Actions:
-\`gradle -p portable/nexus-gemini-android assembleDebug\`
-
-A CI-produced **debug** APK is intended for owner-authorized manual testing,
-not a signed production release. The APK can be installed once from USB on a
-compatible Android 8+ device with sideload permission (Android 11 HY-320 is a
-target, but not yet verified).
+Android 8+ APK using the Gemini REST API. Does not need laptop, Ollama or Qwen.
 
 ## Set up once on laptop
-1. Open \`../nexus-gemini-usb/KEY-SETUP.html\` with a current Chrome/Edge.
-2. Enter your Google AI Studio Gemini API key and a new vault passphrase.
-3. Download \`jarvis-key.enc.json\`; copy it to the USB stick. It is
-   **AES-256-GCM encrypted** with PBKDF2-SHA256 (250,000 iterations).
-4. Put the APK on the USB. On the Android device, **install** it using a
-   trusted file manager and owner-approved unknown-app installation.
-5. Launch **J.A.R.V.I.S. Gemini** from the Android Apps screen. USB insertion
-   alone does not launch or install an APK.
-6. Select the encrypted file using Android's document picker and type the
-   vault password. The encrypted file is cached locally for future launches;
-   the unlocked API key is **only kept in app memory**.
-7. Use TV remote/keyboard for text. Voice input uses the system speech
-   recognition intent, and TTS uses system TextToSpeech; these may be absent
-   on low-cost projectors or TVs.
+1. Open ../nexus-gemini-usb/KEY-SETUP.html in Chrome/Edge.
+2. Paste the Gemini API key and download jarvis-gemini-key.json.
+3. Copy this JSON and the current debug APK to USB.
 
-## Gemini models
+## On each compatible Android TV/projector
+1. Manually install APK from USB with owner permission.
+2. Open J.A.R.V.I.S. Gemini from Apps.
+3. Select jarvis-gemini-key.json from USB once. **No password**.
+4. The app encrypts a copy in Android Keystore (AES/GCM) and automatically
+   loads it on subsequent launches. Uninstall/data wipe requires re-import.
+5. Type questions or use optional Android speech recognition & TTS services.
 
-The upstream FatihMakes/Mark-LVII main source uses
-\`gemini-3.1-flash-live-preview\` as its default **Live** model and
-\`gemini-2.5-flash-native-audio-preview-12-2025\` as its Live fallback.
-It also defines Gemini Flash REST model ladders. This prototype currently
-implements **REST generateContent**, not Gemini Live streaming:
-- \`gemini-3.5-flash-lite\` (default)
-- \`gemini-3.5-flash\`
-- \`gemini-3.8-flash\`
+## Security
+**The USB JSON contains the API key in PLAINTEXT.** Anybody who copies it
+can use Google Gemini quota and potentially cause charges. Keep your USB
+private. If lost, rotate/revoke the key in Google AI Studio. Never upload
+the JSON to GitHub or send it in chat. Android Keystore secures only the
+device-local copy, not the removable USB file. Production-grade shared
+credentials need a user-authenticated backend that issues short-lived tokens.
 
-Microphone + TTS are Android OS services, not Gemini Live streaming. Real-time
-interruptible Live voice would require a separate authenticated Live API
-integration and testing. Do not claim that feature is implemented.
+## Models and limits
+Upstream FatihMakes/Mark-LVII uses Gemini Live
+gemini-3.1-flash-live-preview and a Gemini native-audio fallback.
+This app currently uses REST text Flash models:
+gemini-3.5-flash-lite, gemini-3.5-flash, gemini-3.8-flash.
+It does NOT implement Gemini Live continuous two-way audio.
+Voice input and reply speech require Android OS services.
 
-## Known limits
-- Not compatible with arbitrary Samsung Tizen, LG webOS or media-only TV USB
-  playback; those need vendor-specific apps, a supported hosted browser app
-  or a user-approved Android TV dongle.
-- Android must be able to install/open the APK and offer a document picker.
-  HY-320 Android versions, microphones, storage permissions and TV remote
-  behavior vary; hardware test still pending.
-- A device WITHOUT an Android speech recognizer or microphone still supports
-  text input; TTS voice availability varies.
-- Gemini calls cost tokens and may incur charges depending on the Google
-  account's plan. There is **no paid fallback** or implicit other provider.
-- Google's official guidance discourages putting API keys in client software.
-  The encrypted portable vault avoids plaintext *at rest*, but once unlocked,
-  a compromised device can extract the key from memory. For high-security
-  deployment, use a backend/token broker with device authentication.
-- Do not store or commit \`jarvis-key.enc.json\`, any real key, or passwords in GitHub.
-- APK needs compile/automated tests, real API + Android 11 installation and
-  end-to-end USB/TV tests before release claims.
+Internet is necessary. Gemini usage may be billed according to account
+settings; no automatic paid model fallback is implemented.
+APK builds on CI require real HY-320 voice, installer, performance, and
+remote control testing. Android APK cannot run on Samsung Tizen, LG webOS
+or arbitrary media-only USB TVs. USB insertion does not autorun apps.
