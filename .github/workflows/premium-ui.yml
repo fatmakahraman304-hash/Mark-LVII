@@ -32,6 +32,11 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+      - name: Linux Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libopengl0 libnss3 libasound2t64 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libxkbcommon0 libgbm1
       - name: Install Qt for offscreen smoke tests
         run: python -m pip install "PyQt6>=6.6,<7" psutil
       - name: Compile modified Qt modules without GUI execution
