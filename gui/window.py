@@ -1312,7 +1312,7 @@ class MainWindow(QMainWindow):
         self._ctrl_btn.setCheckable(True)
         self._ctrl_btn.setToolTip("Controls — the everyday switches")
         self._ctrl_btn.clicked.connect(self._toggle_controls)
-        self._ctrl_btn.hide()
+        left_lay.addWidget(self._ctrl_btn)
         customize = QPushButton("ÖZELLEŞTİR")
         customize.setStyleSheet(btn_css("dim"))
         customize.setMinimumHeight(38)
