@@ -617,47 +617,82 @@ class HoloPanel(QWidget):
             x -= 6
 
     def paintEvent(self, _):
+        """Paint a layered glass panel with a restrained premium edge treatment."""
         p = QPainter(self)
         if not p.isActive():
             return
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         W, H = self.width(), self.height()
-        cut = 11
-        g = QLinearGradient(0, 0, 0, H)
-        g.setColorAt(0.0, qcol(C.PANEL2))
-        g.setColorAt(0.18, qcol(C.PANEL))
-        g.setColorAt(1.0, qcol(C.DARK))
-        p.setBrush(QBrush(g))
-        p.setPen(QPen(blend(C.PRI, 0.24), 1))
-        p.drawRoundedRect(QRectF(0.5, 0.5, W - 1, H - 1), 10, 10)
-        # Signature accent, painted from the live palette.
-        p.setPen(QPen(qcol(C.ACC), 2))
-        p.drawLine(QLineF(18, 1, 58, 1))
+        if W < 2 or H < 2:
+            p.end()
+            return
+
+        bounds = QRectF(0.75, 0.75, W - 1.5, H - 1.5)
+        ground = QLinearGradient(0, 0, W * 0.3, H)
+        ground.setColorAt(0.0, qcol(C.PANEL2))
+        ground.setColorAt(0.42, qcol(C.PANEL))
+        ground.setColorAt(1.0, qcol(C.DARK))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(ground))
+        p.drawRoundedRect(bounds, 14, 14)
+
+        # Subtle lighting stays confined to the glass; no expensive blur effect.
+        clip = QPainterPath()
+        clip.addRoundedRect(bounds, 14, 14)
+        p.save()
+        p.setClipPath(clip)
+        bloom = QRadialGradient(W * 0.85, 5, max(90, W * 0.85))
+        bloom.setColorAt(0, with_alpha(C.PRI, 0.12))
+        bloom.setColorAt(1, with_alpha(C.PRI, 0))
+        p.setBrush(QBrush(bloom))
+        p.drawRect(bounds)
+        p.restore()
+
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(with_alpha(C.BORDER_B, 0.52), 1))
+        p.drawRoundedRect(bounds, 14, 14)
+
+        # Gradient accent above the title; quiet enough to avoid a neon box.
+        top = QLinearGradient(16, 0, min(W - 16, 170), 0)
+        top.setColorAt(0, with_alpha(C.PRI, 0.9))
+        top.setColorAt(0.45, with_alpha(C.PRI, 0.38))
+        top.setColorAt(1, with_alpha(C.PRI, 0))
+        p.setPen(QPen(QBrush(top), 2))
+        p.drawLine(QLineF(17, 1.5, min(W - 17, 170), 1.5))
+
         if self._title:
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(QBrush(qcol(C.ACC)))
-            p.drawRect(QRectF(12, 11, 3, 10))
+            p.drawRoundedRect(QRectF(13, 13, 3, 10), 1.5, 1.5)
             right = self._header_right()
             code_w = 0.0
-            if self._code:
-                p.setFont(px_font(10, mono=True))
-                code_w = p.fontMetrics().horizontalAdvance(self._code) + 8
-                p.setPen(QPen(blend(C.PRI, 0.5)))
-                p.drawText(QRectF(right - code_w, 6, code_w, 20),
-                           Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, self._code)
-            p.setFont(px_font(11, QFont.Weight.DemiBold, spacing=1.8))
-            p.setPen(QPen(qcol(C.PRI)))
-            room = max(10.0, right - code_w - 26)
-            p.drawText(QRectF(21, 6, room, 20), Qt.AlignmentFlag.AlignVCenter,
+            if self._code and right > 118:
+                p.setFont(px_font(9, QFont.Weight.DemiBold, mono=True, spacing=0.5))
+                code_w = min(float(p.fontMetrics().horizontalAdvance(self._code) + 20),
+                             max(0.0, right - 110))
+                if code_w > 28:
+                    tag = QRectF(right - code_w, 7.5, code_w - 3, 22)
+                    p.setPen(QPen(with_alpha(C.PRI, 0.28), 1))
+                    p.setBrush(QBrush(blend(C.PRI, 0.08, C.PANEL)))
+                    p.drawRoundedRect(tag, 7, 7)
+                    p.setPen(QPen(qcol(C.PRI_DIM)))
+                    p.drawText(tag, Qt.AlignmentFlag.AlignCenter,
+                               p.fontMetrics().elidedText(self._code,
+                                   Qt.TextElideMode.ElideRight, max(10, int(tag.width()) - 8)))
+                else:
+                    code_w = 0
+            p.setFont(px_font(11, QFont.Weight.DemiBold, spacing=1.5))
+            p.setPen(QPen(qcol(C.WHITE)))
+            room = max(10.0, right - code_w - 32)
+            p.drawText(QRectF(24, 7, room, 20), Qt.AlignmentFlag.AlignVCenter,
                        p.fontMetrics().elidedText(self._title, Qt.TextElideMode.ElideRight, int(room)))
-            lg = QLinearGradient(12, 0, W - 12, 0)
-            lg.setColorAt(0.0, with_alpha(C.PRI, 0.55))
-            lg.setColorAt(0.6, with_alpha(C.PRI, 0.12))
-            lg.setColorAt(1.0, with_alpha(C.PRI, 0.0))
-            p.setPen(QPen(QBrush(lg), 1))
-            p.drawLine(QLineF(12, self.HEADER, W - 12, self.HEADER))
+            divider = QLinearGradient(14, 0, W - 14, 0)
+            divider.setColorAt(0, with_alpha(C.PRI, 0.40))
+            divider.setColorAt(0.60, with_alpha(C.PRI, 0.13))
+            divider.setColorAt(1, with_alpha(C.PRI, 0.03))
+            p.setPen(QPen(QBrush(divider), 1))
+            p.drawLine(QLineF(14, self.HEADER, W - 14, self.HEADER))
         p.end()
-
 
 class PanelText:
     """Stands in for a QLabel whose words a HoloPanel now paints in its header,
@@ -1044,21 +1079,24 @@ class HeaderBar(QWidget):
         p = QPainter(self)
         if not p.isActive():
             return
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
         W, H = self.width(), self.height()
-        g = QLinearGradient(0, 0, 0, H)
-        g.setColorAt(0, blend(C.PRI, 0.06))
-        g.setColorAt(1, qcol(C.BG))
-        p.fillRect(self.rect(), QBrush(g))
-        lg = QLinearGradient(0, 0, W, 0)
-        lg.setColorAt(0.0, with_alpha(C.PRI, 0.05))
-        lg.setColorAt(0.5, with_alpha(C.PRI, 0.9))
-        lg.setColorAt(1.0, with_alpha(C.PRI, 0.05))
-        p.setPen(QPen(QBrush(lg), 1))
+        ground = QLinearGradient(0, 0, 0, H)
+        ground.setColorAt(0, blend(C.PRI, 0.09, C.PANEL))
+        ground.setColorAt(0.52, qcol(C.PANEL))
+        ground.setColorAt(1, qcol(C.BG))
+        p.fillRect(self.rect(), QBrush(ground))
+        line = QLinearGradient(0, 0, W, 0)
+        line.setColorAt(0.0, with_alpha(C.PRI, 0.05))
+        line.setColorAt(0.25, with_alpha(C.PRI, 0.23))
+        line.setColorAt(0.5, with_alpha(C.PRI, 0.75))
+        line.setColorAt(0.75, with_alpha(C.PRI, 0.23))
+        line.setColorAt(1.0, with_alpha(C.PRI, 0.05))
+        p.setPen(QPen(QBrush(line), 1))
         p.drawLine(QLineF(0, H - 1.5, W, H - 1.5))
         p.setPen(QPen(qcol(C.PRI), 2))
-        p.drawLine(QLineF(W / 2 - 70, H - 1.5, W / 2 + 70, H - 1.5))
+        p.drawLine(QLineF(W / 2 - 42, H - 1.5, W / 2 + 42, H - 1.5))
         p.end()
-
 
 class StatusStrip(QWidget):
     """The footer: status dots with labels on the left, one line on the right."""
