@@ -32,7 +32,7 @@ jobs:
           gradle-version: "8.9"
       - name: Build Android TV debug APK (no Gemini credentials)
         working-directory: portable/nexus-gemini-android
-        run: gradle --no-daemon --stacktrace assembleDebug
+        run: gradle --no-daemon --stacktrace testDebugUnitTest assembleDebug
       - name: Upload manually installable debug APK
         uses: actions/upload-artifact@v4
         with:
