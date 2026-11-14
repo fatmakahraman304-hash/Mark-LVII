@@ -52,8 +52,8 @@ public final class MainActivity extends Activity {
     private TextToSpeech tts;
     private SpeechRecognizer recognizer;
     private final Handler micHandler = new Handler(Looper.getMainLooper());
-    private final Runnable micTimeout = () -> { if (listening) stopListening(true); };
     private boolean listening = false;
+    private final Runnable micTimeout = () -> { if (listening) stopListening(true); };
     private boolean voiceEnabled = true;
     private volatile boolean speakReady = false;
     private boolean busy = false;
