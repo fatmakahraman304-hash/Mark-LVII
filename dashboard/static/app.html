@@ -130,6 +130,23 @@
       pointer-events:none; white-space:nowrap;
     }
     #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+    .fortune-open { margin: 8px 16px 0; align-self: flex-start; }
+    .fortune-dialog {
+      color: var(--text); background: #111827; border: 1px solid var(--border);
+      border-radius: 18px; width: min(460px, calc(100% - 32px)); box-sizing: border-box;
+      max-height: 85vh; padding: 20px; overflow: auto;
+    }
+    .fortune-dialog::backdrop { background: rgba(4, 8, 16, .78); }
+    .fortune-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .fortune-heading h2 { font-size: 21px; margin: 0; }
+    .fortune-dialog p { line-height: 1.5; font-size: 14px; }
+    .fortune-dialog form { display: grid; gap: 12px; }
+    .fortune-dialog input { width: 100%; color: inherit; }
+    .fortune-dialog input::file-selector-button { border: none; border-radius: 8px; padding: 10px; margin-right: 10px; }
+    .fortune-dialog button:disabled { opacity: .55; }
+    #fortune-photo-preview { width: 100%; max-height: 220px; object-fit: contain; border-radius: 10px; }
+    #fortune-result { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
   </style>
 </head>
 <body>
@@ -141,6 +158,23 @@
     <div class="spacer"></div>
     <div class="url">__IP__:__PORT__</div>
   </header>
+  <button class="btn fortune-open" type="button" id="fortune-open">☕ Kahve Falı</button>
+  <dialog class="fortune-dialog" id="fortune-dialog" aria-labelledby="fortune-title">
+    <div class="fortune-heading">
+      <h2 id="fortune-title">Kahve Falı</h2>
+      <button class="btn" type="button" id="fortune-close" aria-label="Fal bölümünü kapat">Kapat</button>
+    </div>
+    <p>Fincanın içini aydınlıkta çek. JARVIS telve izlerini inceleyip eğlencelik bir yorum yazsın.</p>
+    <form id="fortune-form">
+      <label for="fortune-photo">Fincan fotoğrafı</label>
+      <input id="fortune-photo" required type="file" accept="image/jpeg,image/png,image/webp">
+      <img id="fortune-photo-preview" hidden alt="Seçtiğin fincan fotoğrafı">
+      <p>JPEG, PNG veya WebP, en çok 8 MB. Fotoğraf yorum için Google Gemini’ye gönderilir.</p>
+      <button class="btn btn-send" id="fortune-submit" type="submit">Falımı yorumla</button>
+    </form>
+    <p id="fortune-status" role="status"></p>
+    <div id="fortune-result" aria-live="polite"></div>
+  </dialog>
   <main id="feed"></main>
   <footer>
     <input id="inp" placeholder="Send a command to JARVIS…" autocomplete="off">
@@ -166,6 +200,69 @@
       return fetch(url, opts);
     }
 
+
+    const fortuneDialog = document.getElementById('fortune-dialog');
+    const fortuneForm = document.getElementById('fortune-form');
+    const fortunePhoto = document.getElementById('fortune-photo');
+    const fortunePreview = document.getElementById('fortune-photo-preview');
+    const fortuneStatus = document.getElementById('fortune-status');
+    const fortuneResult = document.getElementById('fortune-result');
+    const fortuneSubmit = document.getElementById('fortune-submit');
+    let fortunePreviewUrl = null;
+
+    function clearFortunePreview() {
+      if (fortunePreviewUrl) URL.revokeObjectURL(fortunePreviewUrl);
+      fortunePreviewUrl = null;
+      fortunePreview.removeAttribute('src');
+      fortunePreview.hidden = true;
+    }
+    document.getElementById('fortune-open').addEventListener('click', () => fortuneDialog.showModal());
+    document.getElementById('fortune-close').addEventListener('click', () => fortuneDialog.close());
+    fortuneDialog.addEventListener('close', () => {
+      clearFortunePreview();
+      fortuneForm.reset();
+    });
+    fortunePhoto.addEventListener('change', () => {
+      clearFortunePreview();
+      fortuneStatus.textContent = '';
+      fortuneResult.textContent = '';
+      const file = fortunePhoto.files[0];
+      if (!file) return;
+      fortunePreviewUrl = URL.createObjectURL(file);
+      fortunePreview.src = fortunePreviewUrl;
+      fortunePreview.hidden = false;
+    });
+    fortuneForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (fortuneSubmit.disabled) return;
+      const file = fortunePhoto.files[0];
+      if (!file) return;
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 8 * 1024 * 1024) {
+        fortuneStatus.textContent = '8 MB veya daha küçük bir JPEG, PNG ya da WebP seç.';
+        return;
+      }
+      fortuneResult.textContent = '';
+      fortuneSubmit.disabled = true;
+      fortunePhoto.disabled = true;
+      fortuneStatus.textContent = 'Fincandaki izler inceleniyor…';
+      try {
+        const response = await _authFetch('/api/coffee-fortune', {
+          method: 'POST', headers: {'Content-Type': file.type}, body: file
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          fortuneStatus.textContent = result.error || 'Fal yorumu alınamadı.';
+          return;
+        }
+        fortuneStatus.textContent = '';
+        fortuneResult.textContent = result.reading;
+      } catch {
+        fortuneStatus.textContent = 'Bağlantı kesildi. JARVIS açıkken tekrar dene.';
+      } finally {
+        fortuneSubmit.disabled = false;
+        fortunePhoto.disabled = false;
+      }
+    });
     // ── AES-256-GCM encryption (Web Crypto) ──────────────────────────────────
     //
     // WHAT CHANGED, AND WHY THE LIBRARY WENT WITH IT

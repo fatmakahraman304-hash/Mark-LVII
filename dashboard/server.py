@@ -1031,6 +1031,39 @@ class DashboardServer:
                     self._wake_callback()
             return JSONResponse({"ok": True})
 
+        from dashboard import coffee_fortune
+
+        fortune_lock = asyncio.Lock()
+
+        @app.post("/api/coffee-fortune")
+        async def fortune(req: Request):
+            if not _auth(req):
+                return JSONResponse({"error": "Oturum sona erdi. QR koduyla yeniden bağlan."}, status_code=401)
+            content_type = req.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+            if content_type not in coffee_fortune.PHOTO_TYPES:
+                return JSONResponse({"error": "JPEG, PNG veya WebP fotoğrafı seç."}, status_code=415)
+            if fortune_lock.locked():
+                return JSONResponse({"error": "Bir fincan yorumlanıyor. Biraz sonra tekrar dene."}, status_code=429)
+            async with fortune_lock:
+                try:
+                    data = bytearray()
+                    async with asyncio.timeout(30):
+                        async for chunk in req.stream():
+                            if len(data) + len(chunk) > coffee_fortune.MAX_PHOTO_BYTES:
+                                return JSONResponse({"error": "Fotoğraf 8 MB sınırını aşıyor."}, status_code=413)
+                            data.extend(chunk)
+                    result = await asyncio.to_thread(coffee_fortune.read_fortune, bytes(data))
+                except coffee_fortune.InvalidPhoto as exc:
+                    return JSONResponse({"error": str(exc)}, status_code=400)
+                except TimeoutError:
+                    return JSONResponse({"error": "Fotoğraf yüklenirken süre doldu."}, status_code=408)
+                except Exception:
+                    return JSONResponse(
+                        {"error": "Gemini fotoğrafı yorumlayamadı. JARVIS’in API anahtarını, bağlantısını ve kotasını kontrol et."},
+                        status_code=502,
+                    )
+                return JSONResponse({"reading": result}, headers={"Cache-Control": "no-store"})
+
         @app.post("/api/wake")
         async def wake_ep(req: Request):
             if not _auth(req):
