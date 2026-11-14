@@ -1,34 +1,26 @@
-# JARVIS NEXUS — Gemini USB vault
+# JARVIS NEXUS — Passwordless Gemini USB
 
-1. Open \`KEY-SETUP.html\` on a trusted laptop in current Chrome/Edge.
-2. Enter **your own** Gemini API key from Google AI Studio.
-3. Make an ASCII passphrase (10–100 chars); this is **not** your Google password.
-4. Download \`jarvis-key.enc.json\`; copy it to the USB drive.
-5. On supported Android 11+ devices, **install** the separate JARVIS Gemini APK
-   once, open it, choose the vault file from USB and unlock with passphrase.
-6. Talk through an installed speech-recognition service or use text input;
-   speech synthesis is optional and depends on Android services.
+1. Open KEY-SETUP.html on your trusted laptop.
+2. Enter the Google AI Studio Gemini API key once; no password.
+3. Download jarvis-gemini-key.json and copy it to the USB.
+4. On every compatible Android TV/projector, manually install the APK once.
+5. Launch the app and select jarvis-gemini-key.json from USB **once**.
+6. On later launches **that Android device** reads its encrypted saved key
+   automatically, without any password. Clearing app data requires reimport.
 
-The encrypted file is portable, but the key **cannot be used without unlocking
-it** on each new device. No app can safely read your encrypted secret and unlock
-it automatically without carrying the unlock secret too. USB loss requires
-rotating the API key if passphrase or vault confidentiality is compromised.
+## Important security trade-off
 
-## Platform reality
+The cross-device USB file contains your API key in **plaintext**.
+Anyone with access to that USB file can use your key and possibly incur costs.
+Never share/upload the file, and rotate/revoke the key if the USB is lost.
+The Android app encrypts only its *device-local copy* using Android Keystore.
+Do not commit the USB key file to GitHub or paste it in chat.
 
-- Android TV/projector, including suitable HY-320 Android 11 variants: APK
-  may be side-loaded with owner permission; app/USB file picker and speech
-  services must be available. USB insertion does **not** auto-launch apps.
-- Samsung Tizen, LG webOS, generic media-only TVs: cannot run Android APK or
-  arbitrary scripts from USB. A compatible native TV app, a supported web app
-  served online, or an external Android TV stick is needed.
-- No Qwen, Ollama, Python or laptop required for the Android Gemini APK.
-- Requires internet and an API key with an active Gemini quota. Charges may
-  occur depending on billing settings; no automatic paid fallback is configured.
-- Google advises against distributing API keys in client software; a secure
-  backend issuing scoped/short-lived session tokens is the production solution.
-  This personal-use encrypted-vault method is **not** enterprise key protection.
-- Never commit \`jarvis-key.enc.json\` to GitHub. Keep its passphrase private.
+A user-authenticated cloud broker with short-lived credentials is the better
+production solution; it is not implemented here.
 
-This is an Android app source prototype. A CI-built debug APK needs real-device
-installation, voice-service, UI and API testing before being called supported.
+Android USB insertion cannot reliably autoinstall/autostart apps. Samsung
+Tizen, LG webOS and media-only TVs cannot run this APK; Android devices
+must offer a compatible APK installer/file picker. Microphone recognition
+and TTS depend on Android device services. Gemini requires internet and
+may consume billable quota. HY-320 hardware remains untested.
