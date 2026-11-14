@@ -208,11 +208,16 @@ class TVHandler(BaseHTTPRequestHandler):
             self._json(403, {"error": "forbidden"})
             return
         host = self.headers["Host"]
-        if (self.path != "/api/chat" or
-                self.headers.get("Origin") != "http://" + host or
-                not hmac.compare_digest(
-                    self.headers.get("X-Nexus-Token", ""), self.server.token
-                )):
+        origins = self.headers.get_all("Origin", [])
+        tokens = self.headers.get_all("X-Nexus-Token", [])
+        try:
+            valid_token = (len(tokens) == 1 and len(tokens[0]) <= 256 and
+                           hmac.compare_digest(tokens[0].encode("ascii"),
+                                               self.server.token.encode("ascii")))
+        except UnicodeEncodeError:
+            valid_token = False
+        if (self.path != "/api/chat" or len(origins) != 1 or
+                origins[0] != "http://" + host or not valid_token):
             self._json(403, {"error": "request_not_authorized"})
             return
         if self.headers.get("Transfer-Encoding"):
