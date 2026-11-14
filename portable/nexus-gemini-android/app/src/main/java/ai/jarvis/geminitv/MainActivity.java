@@ -1,20 +1,22 @@
 package ai.jarvis.geminitv;
 
-import android.app.Activity;
 import android.Manifest;
-import android.content.pm.PackageManager;
+import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.speech.RecognizerIntent;
 import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import android.text.InputType;
-import android.view.View;
+import android.view.KeyEvent;
+import android.view.inputmethod.EditorInfo;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -33,480 +35,511 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Gemini UI for Android 8+ / Android TV, with no vault password prompt.
- * Import a plain-text API key file once per Android device; it is then kept
- * encrypted at rest in Android Keystore and auto-unlocked on future launches.
- * No Ollama, laptop, Python or USB autorun.
+ * Foreground-only, button-free voice interaction prototype.
+ * Android SpeechRecognizer is NOT designed as a reliable continuous hotword
+ * engine. Best-effort short recognition sessions are restarted in foreground.
+ * "Sus" mutes spoken replies but microphone continues listening for "Konuş".
+ * No background recording; never claims USB autorun or Gemini Live streaming.
  */
 public final class MainActivity extends Activity {
     private static final int OPEN_KEY_FILE = 110;
-    private static final int VOICE_INPUT = 120;
     private static final int MIC_PERMISSION = 130;
-    private static final int BLUE = Color.rgb(120, 220, 255);
+    private static final long SESSION_TIMEOUT_MS = 20000L;
+    private static final int MAX_SERVICE_FAILURES = 5;
+    private static final int SKY = Color.rgb(123, 223, 255);
+    private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final JSONArray history = new JSONArray();
-    private TextView status, transcript, voiceInfo;
+    private final Runnable microphoneTimeout = () -> {
+        if (listening) {
+            releaseRecognizer();
+            scheduleListen(900);
+        }
+    };
+    private final Runnable nextListen = this::startRecognition;
+
+    private TextView status, conversation, micIndicator;
     private EditText prompt;
-    private Button send, micButton, stopButton, soundButton;
+    private Button keyPicker;
     private Spinner model;
-    private TextToSpeech tts;
     private SpeechRecognizer recognizer;
-    private final Handler micHandler = new Handler(Looper.getMainLooper());
+    private TextToSpeech tts;
+    private String apiKey;
+    private String mostRecentAnswer = "";
+    private boolean foreground = false;
+    private boolean destroyed = false;
     private boolean listening = false;
-    private final Runnable micTimeout = () -> { if (listening) stopListening(true); };
-    private boolean voiceEnabled = true;
-    private volatile boolean speakReady = false;
+    private boolean speaking = false;
     private boolean busy = false;
-    private String apiKey; // RAM-only; cleared when Activity dies
+    private boolean voiceEnabled = true;
+    private boolean ttsReady = false;
+    private boolean greetingPlayed = false;
+    private int serviceFailures = 0;
 
-    private TextView text(String label, int size, int color) {
-        TextView t = new TextView(this);
-        t.setText(label);
-        t.setTextSize(size);
-        t.setTextColor(color);
-        t.setPadding(0, 10, 0, 12);
-        return t;
+    private TextView makeText(String title, int sp, int color) {
+        TextView value = new TextView(this);
+        value.setText(title);
+        value.setTextSize(sp);
+        value.setTextColor(color);
+        value.setPadding(0, 12, 0, 12);
+        return value;
     }
 
-    private Button button(String title) {
-        Button b = new Button(this);
-        b.setText(title);
-        b.setTextSize(19);
-        b.setMinHeight(72);
-        b.setAllCaps(false);
-        b.setFocusable(true);
-        return b;
+    private void setStatus(String value) {
+        if (status != null) status.setText(value);
     }
 
-    private EditText input(String hint, boolean password) {
-        EditText e = new EditText(this);
-        e.setHint(hint);
-        e.setTextColor(Color.WHITE);
-        e.setHintTextColor(Color.rgb(164, 189, 202));
-        e.setTextSize(19);
-        e.setSingleLine(password);
-        e.setInputType(password ?
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD :
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        e.setMinHeight(72);
-        return e;
+    private void setMic(String value) {
+        if (micIndicator != null) micIndicator.setText(value);
     }
 
-    @Override public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    @Override public void onCreate(Bundle state) {
+        super.onCreate(state);
         getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         try { apiKey = DeviceKeyStore.load(this); }
-        catch (Exception ignored) { apiKey = null; /* request re-import */ }
-        ScrollView container = new ScrollView(this);
-        container.setFillViewport(true);
-        container.setBackgroundColor(Color.rgb(6, 19, 31));
+        catch (Exception ignored) { apiKey = null; }
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(Color.rgb(6, 17, 29));
         LinearLayout root = new LinearLayout(this);
+        root.setPadding(30, 20, 30, 28);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(28, 20, 28, 28);
-        container.addView(root);
-        setContentView(container);
+        scroll.addView(root);
+        setContentView(scroll);
 
-        root.addView(text("J.A.R.V.I.S.", 36, BLUE));
-        root.addView(text("GEMINI USB · Android TV / Projeksiyon", 17, Color.LTGRAY));
-        status = text(apiKey == null ?
-                "USB'den Gemini anahtar dosyanı içe aktar (şifre yok)." :
-                "Gemini anahtarı bu Android cihazda kayıtlı, hazır.", 17, Color.rgb(175, 226, 201));
+        root.addView(makeText("J.A.R.V.I.S.", 40, SKY));
+        root.addView(makeText("NEXUS · GEMINI · ELLER SERBEST SES MODU", 17, Color.LTGRAY));
+        status = makeText("Başlatılıyor…", 20, SKY);
         root.addView(status);
+        micIndicator = makeText("● MİKROFON KAPALI", 20, Color.rgb(245, 187, 131));
+        root.addView(micIndicator);
+        root.addView(makeText("Bana normal konuş. \"Sus\" dersen sesimi kapatırım; "
+                + "\"Konuş\" dersen yeniden sesli yanıt veririm.", 20, Color.WHITE));
 
-        Button choose = button("USB'den Gemini anahtarını seç (şifresiz)");
-        root.addView(choose);
-        choose.setOnClickListener(v -> {
-            Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-            picker.addCategory(Intent.CATEGORY_OPENABLE);
-            picker.setType("*/*");
-            try { startActivityForResult(picker, OPEN_KEY_FILE); }
-            catch (ActivityNotFoundException ex) {
-                setStatus("Bu Android cihazda dosya seçici yok. Dosyayı cihazın İndirilenler klasörüne taşıyıp dosya yöneticisini kontrol et.");
-            }
-        });
+        keyPicker = new Button(this);
+        keyPicker.setText("Gemini anahtar dosyasını seç · İlk kurulum");
+        keyPicker.setTextSize(19);
+        keyPicker.setMinHeight(68);
+        keyPicker.setAllCaps(false);
+        root.addView(keyPicker);
+        keyPicker.setVisibility(apiKey == null ? Button.VISIBLE : Button.GONE);
+        keyPicker.setOnClickListener(v -> chooseKeyFile());
 
-        root.addView(text("Gemini modeli (FatihMakes'in metin Flash ailesi)", 16, Color.LTGRAY));
         model = new Spinner(this);
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_item, GeminiHttp.MODELS);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         model.setAdapter(adapter);
+        root.addView(makeText("Gemini modeli", 15, Color.LTGRAY));
         root.addView(model);
 
-        transcript = text("JARVIS: Merhaba! İnternet bağlantın ve Gemini anahtarın varsa burada konuşabiliriz.\n",
-                21, Color.WHITE);
-        transcript.setMinHeight(180);
-        transcript.setTextIsSelectable(true);
-        root.addView(transcript);
+        conversation = makeText("JARVIS: Merhaba. Sesli konuşmaya hazırım.\n", 21, Color.WHITE);
+        conversation.setMinHeight(270);
+        conversation.setTextIsSelectable(true);
+        root.addView(conversation);
 
-        prompt = input("JARVIS'e mesajını yaz", false);
+        // Fallback only for TV devices lacking microphone/STT. No send button.
+        prompt = new EditText(this);
+        prompt.setTextColor(Color.WHITE);
+        prompt.setHintTextColor(Color.LTGRAY);
+        prompt.setHint("Mikrofon yoksa buraya yaz ve Enter'a bas");
+        prompt.setTextSize(19);
+        prompt.setSingleLine(true);
+        prompt.setImeOptions(EditorInfo.IME_ACTION_SEND);
+        prompt.setInputType(InputType.TYPE_CLASS_TEXT);
+        prompt.setOnEditorActionListener((field, action, event) -> {
+            if (action == EditorInfo.IME_ACTION_SEND ||
+                    (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
+                            && event.getAction() == KeyEvent.ACTION_DOWN)) {
+                sendMessage(prompt.getText().toString());
+                return true;
+            }
+            return false;
+        });
         root.addView(prompt);
-        send = button("Gönder");
-        send.setEnabled(apiKey != null);
-        root.addView(send);
-        send.setOnClickListener(v -> sendMessage());
-
-        micButton = button("🎤 KONUŞ · Mikrofona seslen");
-        root.addView(micButton);
-        micButton.setOnClickListener(v -> startVoice());
-
-        stopButton = button("⏹ Dinlemeyi Durdur");
-        stopButton.setEnabled(false);
-        root.addView(stopButton);
-        stopButton.setOnClickListener(v -> stopListening(false));
-
-        soundButton = button("🔇 Sesi Kapat");
-        root.addView(soundButton);
-        soundButton.setOnClickListener(v -> {
-            voiceEnabled = !voiceEnabled;
-            if (!voiceEnabled && tts != null) tts.stop();
-            setStatus(voiceEnabled ? "Sesli yanıtlar açıldı." : "Sesli yanıtlar kapatıldı.");
-            updateVoiceControls();
-        });
-
-        Button testSound = button("🔊 SES TESTİ · Merhaba de");
-        root.addView(testSound);
-        testSound.setOnClickListener(v -> testVoiceOutput());
-
-        voiceInfo = text("Mikrofon ve Türkçe ses kontrol ediliyor…", 16, Color.LTGRAY);
-        root.addView(voiceInfo);
-        updateVoiceControls();
-
-        Button clear = button("Sohbeti temizle");
-        root.addView(clear);
-        clear.setOnClickListener(v -> {
-            while (history.length() > 0) history.remove(0);
-            transcript.setText("JARVIS: Sohbet temizlendi.\n");
-        });
-
-        root.addView(text("USB anahtar dosyası ŞİFRESİZDİR: USB'yi bulan kişi Gemini anahtarını kullanabilir. "
-                + "İçe aktarıldıktan sonra Android uygulaması anahtarı kendi Keystore şifrelemesiyle saklar. "
-                + "Konuş'a bastığında mikrofon kısa süre dinlenir; sürekli dinleme veya gizli kayıt yok. "
-                + "Konuşma tanıma hizmeti sesi sağlayıcısına internet üzerinden gönderebilir. "
-                + "Yanıtı sesli okuma için Android TTS gerekir. Bunlar tüm TV'lerde yoktur. "
-                + "Her Gemini isteği Google'a internet üzerinden gider; anahtar kotanı/bütçeni kontrol et.",
+        root.addView(makeText("Mikrofon yalnızca uygulama ekrandayken dinler. "
+                + "Android konuşma tanıma servisi sesini kendi sunucusuna gönderebilir. "
+                + "Soruların metni Gemini API'ye gönderilir. Uygulamayı kapatırsan dinleme durur. "
+                + "USB'de şifresiz API anahtarı varsa USB'yi başkalarıyla paylaşma.",
                 14, Color.LTGRAY));
-        tts = new TextToSpeech(this, code -> {
-            micHandler.post(() -> {
-                if (code == TextToSpeech.SUCCESS && tts != null) {
-                    int result = tts.setLanguage(new Locale("tr", "TR"));
-                    speakReady = result != TextToSpeech.LANG_MISSING_DATA
-                            && result != TextToSpeech.LANG_NOT_SUPPORTED;
-                    if (speakReady) {
-                        tts.setSpeechRate(1.03f);
-                        tts.setPitch(0.94f);
-                    }
+        if (apiKey == null) {
+            setStatus("İlk kurulum: USB'den jarvis-gemini-key.json seç.");
+        } else {
+            setStatus("Gemini anahtarı hazır · Türkçe ses başlatılıyor…");
+        }
+        configureTts();
+    }
+
+    private void chooseKeyFile() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        try { startActivityForResult(intent, OPEN_KEY_FILE); }
+        catch (ActivityNotFoundException ex) {
+            setStatus("Android dosya seçicisi yok. USB dosyasını cihazdaki dosya yöneticisiyle açmayı dene.");
+        }
+    }
+
+    private void configureTts() {
+        tts = new TextToSpeech(this, result -> ui.post(() -> {
+            if (destroyed) return;
+            if (result == TextToSpeech.SUCCESS && tts != null) {
+                int language = tts.setLanguage(new Locale("tr", "TR"));
+                ttsReady = language != TextToSpeech.LANG_MISSING_DATA
+                        && language != TextToSpeech.LANG_NOT_SUPPORTED;
+                if (ttsReady) {
+                    tts.setSpeechRate(1.04f);
+                    tts.setPitch(0.96f);
+                    tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                        @Override public void onStart(String id) { }
+                        @Override public void onDone(String id) {
+                            ui.post(() -> {
+                                if (destroyed) return;
+                                speaking = false;
+                                scheduleListen(300);
+                            });
+                        }
+                        @Override public void onError(String id) {
+                            ui.post(() -> {
+                                if (destroyed) return;
+                                speaking = false;
+                                setStatus("Android Türkçe ses motoru ses çıkaramadı.");
+                                scheduleListen(350);
+                            });
+                        }
+                        @Override public void onStop(String id, boolean interrupted) {
+                            ui.post(() -> {
+                                if (destroyed) return;
+                                speaking = false;
+                                scheduleListen(350);
+                            });
+                        }
+                    });
                 }
-                updateVoiceControls();
-            });
-        });
-    }
-
-    private void setStatus(String message) { status.setText(message); }
-
-    private static String readBounded(InputStream input, int maxBytes) throws Exception {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] buffer = new byte[2048];
-        int n;
-        while ((n = input.read(buffer)) != -1) {
-            if (out.size() + n > maxBytes) throw new Exception("File too big");
-            out.write(buffer, 0, n);
-        }
-        return new String(out.toByteArray(), StandardCharsets.UTF_8);
-    }
-
-    @Override protected void onActivityResult(int request, int result, Intent data) {
-        super.onActivityResult(request, result, data);
-        if (request == OPEN_KEY_FILE && result == RESULT_OK && data != null && data.getData() != null) {
-            try (InputStream stream = getContentResolver().openInputStream(data.getData())) {
-                if (stream == null) throw new Exception("Missing file stream");
-                String file = readBounded(stream, 4096);
-                JSONObject obj = new JSONObject(file);
-                String imported = obj.optString("api_key", "");
-                if (obj.length() != 3 || obj.optInt("version") != 2
-                        || !"gemini".equals(obj.optString("provider"))
-                        || !imported.matches("[\\x21-\\x7e]{20,220}")) {
-                    throw new Exception("Unsupported API key file");
-                }
-                DeviceKeyStore.save(this, imported);
-                apiKey = imported;
-                send.setEnabled(true);
-                updateVoiceControls();
-                setStatus("Gemini anahtarı kaydedildi. Konuş veya mesaj yaz.");
-            } catch (Exception ex) {
-                setStatus("Anahtar içe aktarılamadı. Yeni KEY-SETUP.html ile şifresiz jarvis-gemini-key.json oluştur.");
             }
-        } else if (request == VOICE_INPUT && result == RESULT_OK && data != null) {
-            ArrayList<String> words = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-            if (words != null && !words.isEmpty()) {
-                prompt.setText(words.get(0));
-                sendMessage();
-            } else {
-                setStatus("Mikrofon sesi algılamadı. Tekrar Konuş'a bas.");
-            }
-        } else if (request == VOICE_INPUT && result != RESULT_OK) {
-            setStatus("Dinleme iptal edildi veya ses algılanmadı.");
+            if (!ttsReady) setStatus("Türkçe TTS bulunamadı. Yazılı yanıt ve varsa mikrofon kullanılabilir.");
+            maybeGreet();
+        }));
+    }
+
+    private void maybeGreet() {
+        if (!foreground || apiKey == null || greetingPlayed) return;
+        if (ttsReady) {
+            greetingPlayed = true;
+            say("Merhaba. Ben JARVIS. Seni dinliyorum.", "jarvis-welcome");
+        } else {
+            setStatus("JARVIS hazır. Cihazda Türkçe TTS yoksa sesli cevap verilemez.");
         }
     }
 
-    private void updateVoiceControls() {
-        if (micButton != null) {
-            micButton.setText(listening ? "🎤 DİNLİYOR…" : "🎤 KONUŞ · Mikrofona seslen");
-            micButton.setEnabled(apiKey != null && !listening && !busy);
-        }
-        if (stopButton != null) stopButton.setEnabled(listening);
-        if (soundButton != null) soundButton.setText(voiceEnabled ? "🔇 Sesi Kapat" : "🔊 Sesi Aç");
-        if (voiceInfo != null) {
-            String inputStatus;
-            try {
-                inputStatus = SpeechRecognizer.isRecognitionAvailable(this)
-                        ? "Mikrofon tanıma servisi: var"
-                        : "Mikrofon tanıma servisi: yok (harici uygulama denenebilir)";
-            } catch (RuntimeException e) {
-                inputStatus = "Mikrofon tanıma servisi: kontrol edilemedi";
-            }
-            voiceInfo.setText(inputStatus + " · Türkçe seslendirme: "
-                    + (speakReady ? "hazır" : "henüz hazır değil"));
-        }
-    }
-
-    private void testVoiceOutput() {
-        if (!speakReady || tts == null) {
-            setStatus("Türkçe ses motoru bulunamadı. Android seslendirme ayarlarında Türkçe TTS yükle.");
-            return;
-        }
+    private void say(String message, String utteranceId) {
+        if (!foreground || !voiceEnabled || !ttsReady || tts == null) return;
         try {
-            int result = tts.speak("Merhaba. Ben JARVIS. Sesim duyuluyor mu?",
-                    TextToSpeech.QUEUE_FLUSH, null, "jarvis-test");
-            setStatus(result == TextToSpeech.ERROR
-                    ? "Ses motoru test cümlesini okuyamadı."
-                    : "Ses testi oynatılıyor. Ses seviyesini kontrol et.");
-        } catch (RuntimeException e) {
-            setStatus("Android ses motoru yanıt vermedi.");
+            speaking = true;
+            int queued = tts.speak(message, TextToSpeech.QUEUE_FLUSH, null, utteranceId);
+            if (queued == TextToSpeech.ERROR) {
+                speaking = false;
+                setStatus("Türkçe seslendirme başarısız. Android TTS kurulumunu kontrol et.");
+            }
+        } catch (RuntimeException ex) {
+            speaking = false;
+            setStatus("Android ses motoru çalışmadı.");
         }
     }
 
-    private void stopListening(boolean timedOut) {
-        if (!listening) return;
+    private void releaseRecognizer() {
         listening = false;
-        micHandler.removeCallbacks(micTimeout);
+        ui.removeCallbacks(microphoneTimeout);
         if (recognizer != null) {
             try { recognizer.cancel(); } catch (RuntimeException ignored) { }
             try { recognizer.destroy(); } catch (RuntimeException ignored) { }
             recognizer = null;
         }
-        updateVoiceControls();
-        setStatus(timedOut ? "Mikrofon zaman aşımına uğradı. Tekrar Konuş'a bas."
-                : "Dinleme durduruldu. Mikrofon kapalı.");
+        setMic("● MİKROFON KAPALI");
     }
 
-    private void startVoice() {
-        if (apiKey == null) {
-            setStatus("Önce Gemini anahtarını USB dosyasından içe aktar.");
-            return;
-        }
-        if (busy || listening) {
-            setStatus("Mevcut yanıtın veya dinlemenin bitmesini bekle.");
-            return;
-        }
-        if (tts != null) tts.stop(); // No speaker echo in microphone.
+    private void scheduleListen(long waitMs) {
+        ui.removeCallbacks(nextListen);
+        if (!foreground || destroyed || apiKey == null
+                || serviceFailures >= MAX_SERVICE_FAILURES) return;
+        ui.postDelayed(nextListen, waitMs);
+    }
+
+    private void ensureMicPermission() {
+        if (!foreground || destroyed || apiKey == null) return;
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
+            setStatus("JARVIS'in seni duyabilmesi için Android mikrofon izni gerekiyor.");
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, MIC_PERMISSION);
             return;
         }
-        startMicrophone();
+        scheduleListen(400);
     }
 
-    @Override public void onRequestPermissionsResult(int requestCode,
-            String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == MIC_PERMISSION) {
-            if (grantResults.length > 0 &&
-                    grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startMicrophone();
-            } else {
-                setStatus("Mikrofon izni verilmedi. Android Uygulama Ayarları'ndan mikrofon iznini aç.");
-            }
+    @Override public void onRequestPermissionsResult(int request,
+            String[] permissions, int[] grants) {
+        super.onRequestPermissionsResult(request, permissions, grants);
+        if (request != MIC_PERMISSION) return;
+        if (grants.length > 0 && grants[0] == PackageManager.PERMISSION_GRANTED) {
+            setStatus("Mikrofon izni verildi. JARVIS dinlemeye başlıyor.");
+            scheduleListen(300);
+        } else {
+            setMic("● MİKROFON İZNİ VERİLMEDİ");
+            setStatus("Mikrofon izni reddedildi. Android Uygulama Ayarları'ndan izin ver; yazılı sohbet kullanılabilir.");
         }
     }
 
-    private void startMicrophone() {
-        if (apiKey == null || busy || listening) return;
+    private void startRecognition() {
+        if (!foreground || destroyed || apiKey == null || listening
+                || serviceFailures >= MAX_SERVICE_FAILURES) return;
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) return;
         try {
             if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-                startExternalRecognition();
+                serviceFailures = MAX_SERVICE_FAILURES;
+                setMic("● MİKROFON HİZMETİ YOK");
+                setStatus("Bu cihazda Android konuşma tanıma hizmeti bulunamadı. "
+                        + "Uyumlu mikrofon ve konuşma tanıma servisi gerekir.");
                 return;
             }
             recognizer = SpeechRecognizer.createSpeechRecognizer(this);
             recognizer.setRecognitionListener(new RecognitionListener() {
                 @Override public void onReadyForSpeech(Bundle params) {
-                    if (listening) setStatus("🎤 JARVIS dinliyor… Şimdi konuş.");
+                    if (listening) setMic("● DİNLİYOR · KONUSABİLİRSİN");
                 }
                 @Override public void onBeginningOfSpeech() {
-                    if (listening) setStatus("🎤 Sesin algılandı. Konuşmaya devam et.");
+                    if (listening) setMic("● SES ALGILANDI");
                 }
-                @Override public void onRmsChanged(float rmsdB) { }
-                @Override public void onBufferReceived(byte[] buffer) { }
+                @Override public void onRmsChanged(float rms) { }
+                @Override public void onBufferReceived(byte[] b) { }
                 @Override public void onEndOfSpeech() {
-                    if (listening) setStatus("Sözlerin işleniyor…");
+                    if (listening) setMic("● KONUŞMA İŞLENİYOR");
                 }
-                @Override public void onError(int error) {
-                    if (!listening) return;
-                    stopListening(false);
-                    switch (error) {
-                        case SpeechRecognizer.ERROR_NO_MATCH:
-                        case SpeechRecognizer.ERROR_SPEECH_TIMEOUT:
-                            setStatus("Seni anlayamadım. Konuş'a tekrar bas.");
-                            break;
-                        case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS:
-                            setStatus("Mikrofon izni yok. Android ayarlarını kontrol et.");
-                            break;
-                        case SpeechRecognizer.ERROR_NETWORK:
-                        case SpeechRecognizer.ERROR_NETWORK_TIMEOUT:
-                            setStatus("Konuşma tanıma hizmeti internete bağlanamadı.");
-                            break;
-                        case SpeechRecognizer.ERROR_RECOGNIZER_BUSY:
-                            setStatus("Mikrofon başka bir hizmet tarafından kullanılıyor.");
-                            break;
-                        default:
-                            setStatus("Konuşma tanıma hatası (" + error
-                                    + "). Cihazın konuşma tanıma servisini kontrol et.");
-                    }
-                }
+                @Override public void onError(int code) { speechError(code); }
                 @Override public void onResults(Bundle results) {
                     if (!listening) return;
-                    ArrayList<String> words =
-                            results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                    stopListening(false);
-                    if (words == null || words.isEmpty() || words.get(0).trim().isEmpty()) {
-                        setStatus("Sözler duyulamadı. Tekrar Konuş'a bas.");
-                        return;
+                    ArrayList<String> words = results.getStringArrayList(
+                            SpeechRecognizer.RESULTS_RECOGNITION);
+                    releaseRecognizer();
+                    serviceFailures = 0;
+                    if (words != null && !words.isEmpty()) {
+                        handleUtterance(words.get(0));
                     }
-                    prompt.setText(words.get(0));
-                    sendMessage(); // One explicit mic activation sends just one recognized turn.
+                    scheduleListen(500);
                 }
-                @Override public void onPartialResults(Bundle partialResults) {
+                @Override public void onPartialResults(Bundle result) {
                     if (!listening) return;
-                    ArrayList<String> words =
-                            partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                    ArrayList<String> words = result.getStringArrayList(
+                            SpeechRecognizer.RESULTS_RECOGNITION);
                     if (words != null && !words.isEmpty()) {
                         String heard = words.get(0);
-                        setStatus("🎤 Duyduğum: " + heard.substring(0, Math.min(heard.length(), 110)));
+                        setMic("● DUYULAN: " + heard.substring(0, Math.min(heard.length(), 75)));
+                        // Only full results are considered valid commands to avoid echo/false positives.
                     }
                 }
-                @Override public void onEvent(int eventType, Bundle params) { }
+                @Override public void onEvent(int eventType, Bundle data) { }
             });
-            Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+            Intent request = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            request.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                     RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "tr-TR");
-            intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
-            intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+            request.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "tr-TR");
+            request.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+            request.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
             listening = true;
-            updateVoiceControls();
-            setStatus("🎤 Mikrofon açılıyor…");
-            recognizer.startListening(intent);
-            micHandler.postDelayed(micTimeout, 20000L);
+            setMic("● MİKROFON AÇILIYOR");
+            recognizer.startListening(request);
+            ui.postDelayed(microphoneTimeout, SESSION_TIMEOUT_MS);
         } catch (RuntimeException ex) {
-            if (listening) stopListening(false);
-            if (recognizer != null) {
-                try { recognizer.destroy(); } catch (RuntimeException ignored) { }
-                recognizer = null;
+            releaseRecognizer();
+            serviceFailures++;
+            if (serviceFailures >= MAX_SERVICE_FAILURES) {
+                setStatus("Android mikrofon hizmeti başlatılamadı. Cihazı/uygulamayı yeniden aç.");
+            } else {
+                scheduleListen(1800L * serviceFailures);
             }
-            startExternalRecognition();
         }
     }
 
-    private void startExternalRecognition() {
-        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "tr-TR");
-        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "JARVIS dinliyor…");
-        try {
-            setStatus("Android ses tanıma ekranı açılıyor…");
-            startActivityForResult(intent, VOICE_INPUT);
-        } catch (ActivityNotFoundException | SecurityException ex) {
-            setStatus("Bu Android cihazda mikrofon / ses tanıma hizmeti yok. "
-                    + "USB mikrofon ve Android konuşma tanıma hizmeti gerekebilir.");
+    private void speechError(int code) {
+        if (!listening) return;
+        releaseRecognizer();
+        if (code == SpeechRecognizer.ERROR_NO_MATCH
+                || code == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+            serviceFailures = 0;
+            scheduleListen(800);
+            return;
         }
+        if (code == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
+            serviceFailures = MAX_SERVICE_FAILURES;
+            setStatus("Mikrofon izni eksik. Android uygulama ayarlarını kontrol et.");
+            return;
+        }
+        serviceFailures++;
+        if (serviceFailures >= MAX_SERVICE_FAILURES) {
+            setStatus("Ses tanıma hizmeti tekrar tekrar hata verdi (" + code
+                    + "). Mikrofon veya internet hizmetini kontrol edip uygulamayı yeniden aç.");
+            return;
+        }
+        if (code == SpeechRecognizer.ERROR_NETWORK
+                || code == SpeechRecognizer.ERROR_NETWORK_TIMEOUT) {
+            setStatus("Android konuşma tanıma servisi ağ hatası. Yeniden deniyorum…");
+        }
+        scheduleListen(1500L * serviceFailures);
     }
 
-    private void appendConversation(String speaker, String line) {
-        String next = transcript.getText().toString() + "\n" + speaker + ": " + line + "\n";
-        if (next.length() > 14000) next = next.substring(next.length() - 14000);
-        transcript.setText(next);
+    private void handleUtterance(String utterance) {
+        if (utterance == null || utterance.trim().isEmpty()) return;
+        VoiceControl.Command command = VoiceControl.classify(utterance);
+        if (command == VoiceControl.Command.MUTE) {
+            voiceEnabled = false;
+            if (tts != null) tts.stop();
+            speaking = false;
+            setStatus("SESSİZ MOD · JARVIS seni dinliyor. 'Konuş' dersen yeniden ses verir.");
+            return;
+        }
+        if (command == VoiceControl.Command.UNMUTE) {
+            boolean changed = !voiceEnabled;
+            voiceEnabled = true;
+            setStatus("SESLİ MOD · JARVIS konuşmaya hazır.");
+            if (changed) say("Dinliyorum.", "jarvis-unmuted");
+            return;
+        }
+        if (speaking) {
+            // In speaker output, never send its echo to Gemini and create feedback loops.
+            setStatus("JARVIS konuşuyor. Sesi kesmek için 'Sus' de.");
+            return;
+        }
+        if (busy) {
+            setStatus("Önceki soruyu yanıtlıyorum. 'Sus' komutu kullanılabilir.");
+            return;
+        }
+        sendMessage(utterance);
     }
 
-    private void sendMessage() {
-        if (busy || apiKey == null) { setStatus("Gemini anahtarını içe aktar veya mevcut yanıtı bekle."); return; }
-        String question = prompt.getText().toString().trim();
-        if (question.isEmpty() || question.length() > 2000) {
-            setStatus("Mesaj 1-2000 karakter olmalı.");
+    private void append(String sender, String value) {
+        String next = conversation.getText().toString() + "\n" + sender + ": " + value + "\n";
+        if (next.length() > 16000) next = next.substring(next.length() - 16000);
+        conversation.setText(next);
+    }
+
+    private void sendMessage(String input) {
+        if (apiKey == null) {
+            setStatus("Önce Gemini anahtar dosyasını seç.");
+            return;
+        }
+        if (busy || input == null || input.trim().isEmpty()) return;
+        String question = input.trim();
+        if (question.length() > 2000) {
+            setStatus("Soru en fazla 2000 karakter olabilir.");
             return;
         }
         String selected = String.valueOf(model.getSelectedItem());
-        String keyForRequest = apiKey;
-        if (!GeminiHttp.allowedModel(selected)) { setStatus("Model desteklenmiyor."); return; }
+        if (!GeminiHttp.allowedModel(selected)) {
+            setStatus("Seçilen Gemini modeli desteklenmiyor.");
+            return;
+        }
         busy = true;
-        send.setEnabled(false);
-        updateVoiceControls();
         prompt.setText("");
-        appendConversation("SEN", question);
-        setStatus("Gemini cevap hazırlıyor…");
+        append("SEN", question);
+        setStatus("Gemini yanıtlıyor…");
+        final String keyForCall = apiKey;
+        // Snapshot the history so the background worker does not read mutable UI state.
+        final JSONArray past;
+        try { past = new JSONArray(history.toString()); }
+        catch (Exception ignored) { busy = false; return; }
         worker.execute(() -> {
             try {
-                String result = GeminiHttp.ask(keyForRequest, selected, history, question);
+                String result = GeminiHttp.ask(keyForCall, selected, past, question);
                 runOnUiThread(() -> {
+                    if (destroyed) return;
                     try {
                         history.put(new JSONObject().put("role", "user").put("text", question));
                         history.put(new JSONObject().put("role", "model").put("text", result));
                         while (history.length() > 8) history.remove(0);
-                    } catch (Exception ignored) { /* UI still displays answer */ }
-                    appendConversation("JARVIS", result);
-                    setStatus("Hazır · " + selected);
+                    } catch (Exception ignored) { }
                     busy = false;
-                    send.setEnabled(true);
-                    updateVoiceControls();
-                    if (voiceEnabled && speakReady && tts != null) {
-                        try {
-                            int spoken = tts.speak(
-                                    result.substring(0, Math.min(result.length(), 3000)),
-                                    TextToSpeech.QUEUE_FLUSH, null, "jarvis-answer");
-                            if (spoken == TextToSpeech.ERROR)
-                                setStatus("Yanıt yazıldı; Android ses motoru konuşamadı.");
-                        } catch (RuntimeException ignored) {
-                            setStatus("Yanıt yazıldı; ses motoru kullanılamıyor.");
-                        }
-                    } else if (voiceEnabled && !speakReady) {
-                        setStatus("Yanıt yazıldı; Türkçe ses motoru hazır değil. SES TESTİ'ni dene.");
-                    }
+                    mostRecentAnswer = result;
+                    append("JARVIS", result);
+                    setStatus("Gemini yanıtladı · " + selected);
+                    say(result.substring(0, Math.min(result.length(), 3000)), "jarvis-answer");
+                    scheduleListen(400);
                 });
             } catch (Exception ex) {
-                // Never log API credentials, network bodies, or prompts.
-                final String message = ex instanceof java.io.IOException ?
-                        ex.getMessage() : "Gemini yanıtı işlenemedi.";
+                final String message = ex instanceof java.io.IOException
+                        ? ex.getMessage() : "Yanıt işlenemedi.";
                 runOnUiThread(() -> {
-                    appendConversation("JARVIS", "İstek başarısız: " + message);
-                    setStatus("Bağlantıyı, Gemini anahtarını ve kotayı kontrol et.");
-                    busy = false; send.setEnabled(true); updateVoiceControls();
+                    if (destroyed) return;
+                    busy = false;
+                    append("JARVIS", "İstek tamamlanamadı: " + message);
+                    setStatus("Gemini API bağlantısını, model erişimini ve kotanı kontrol et.");
+                    scheduleListen(900);
                 });
             }
         });
     }
 
+    private static String readBounded(InputStream input, int limit) throws Exception {
+        ByteArrayOutputStream result = new ByteArrayOutputStream();
+        byte[] buf = new byte[1024];
+        int read;
+        while ((read = input.read(buf)) != -1) {
+            if (result.size() + read > limit) throw new Exception("Too large");
+            result.write(buf, 0, read);
+        }
+        return new String(result.toByteArray(), StandardCharsets.UTF_8);
+    }
+
+    @Override protected void onActivityResult(int request, int result, Intent intent) {
+        super.onActivityResult(request, result, intent);
+        if (request != OPEN_KEY_FILE || result != RESULT_OK
+                || intent == null || intent.getData() == null) return;
+        try (InputStream stream = getContentResolver().openInputStream(intent.getData())) {
+            if (stream == null) throw new Exception("Missing file");
+            JSONObject file = new JSONObject(readBounded(stream, 4096));
+            String imported = file.optString("api_key", "");
+            if (file.length() != 3 || file.optInt("version") != 2
+                    || !"gemini".equals(file.optString("provider"))
+                    || !imported.matches("[\\x21-\\x7e]{20,220}")) {
+                throw new Exception("Invalid key file");
+            }
+            DeviceKeyStore.save(this, imported);
+            apiKey = imported;
+            keyPicker.setVisibility(Button.GONE);
+            setStatus("Gemini anahtarı kaydedildi. Sesli mod başlıyor…");
+            maybeGreet();
+            ensureMicPermission();
+        } catch (Exception e) {
+            setStatus("Anahtar dosyası okunamadı. KEY-SETUP.html ile oluşturduğun jarvis-gemini-key.json'u seç.");
+        }
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        foreground = true;
+        serviceFailures = 0;
+        if (apiKey != null) {
+            maybeGreet();
+            ensureMicPermission();
+        }
+    }
+
     @Override protected void onStop() {
-        stopListening(false); // Microphone must never stay on in the background.
+        foreground = false;
+        ui.removeCallbacks(nextListen);
+        releaseRecognizer();
+        speaking = false;
+        if (tts != null) tts.stop();
         super.onStop();
     }
 
     @Override protected void onDestroy() {
-        stopListening(false);
-        micHandler.removeCallbacks(micTimeout);
-        apiKey = null;
-        speakReady = false;
+        destroyed = true;
+        ui.removeCallbacks(nextListen);
+        ui.removeCallbacks(microphoneTimeout);
+        releaseRecognizer();
         if (tts != null) { tts.stop(); tts.shutdown(); }
+        apiKey = null;
         worker.shutdownNow();
         super.onDestroy();
     }
