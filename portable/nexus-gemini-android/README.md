@@ -13,32 +13,44 @@ Android 8+ APK using the Gemini REST API. Does not need laptop, Ollama or Qwen.
 3. Select jarvis-gemini-key.json from USB once. **No password**.
 4. The app encrypts a copy in Android Keystore (AES/GCM) and automatically
    loads it on subsequent launches. Uninstall/data wipe requires re-import.
-5. Type questions or use optional Android speech recognition & TTS services.
+5. App speaks its welcome message if Turkish TTS is installed, requests microphone
+   permission once, and starts listening while the app is in the foreground.
+   No microphone buttons are needed; a text field remains for unsupported TVs.
 
-## Android voice: v0.3 push-to-talk (not Gemini Live)
+## Android voice: v0.4 button-free foreground mode (NOT Gemini Live)
 
-- **🎤 Konuş** explicitly requests Android RECORD_AUDIO permission and listens
-  for a **single** Turkish utterance via Android SpeechRecognizer. Partial
-  text is shown while listening; the final text is sent to Gemini REST.
-- **⏹ Dinlemeyi Durdur** cancels recognition. A 20-second timeout also closes
-  the microphone; navigating away closes it too. No continuous hot mic,
-  background listening, wake word or microphone file recording.
-- **🔊 SES TESTİ** speaks a short Turkish sentence through Android
-  TextToSpeech. **🔇 Sesi Kapat / 🔊 Sesi Aç** mutes or enables spoken replies.
-- Gemini response text is spoken through Android TTS when available.
-  This is NOT the upstream FatihMakes Gemini Live bidirectional audio model.
-- Android's speech recognition service may send your voice to its provider
-  over the Internet. The app itself sends only transcribed text to Gemini REST.
-- HY-320 and many TVs lack a microphone, Turkish TTS or Android speech
-  recognizer. In that case connect a compatible USB/Bluetooth microphone and
-  install/enable Android speech recognition and TTS if the device supports it.
-  If neither recognition service nor a supporting recognizer Activity exists,
-  this prototype cannot understand speech on that device.
-- If an older GitHub debug APK was installed, updating may fail because
-  separate CI runs use distinct debug signing keys. In that case uninstall
-  the older JARVIS Gemini test app, install the new v0.3 APK, and re-import
-  jarvis-gemini-key.json. Uninstall clears its device-local saved key.
-- No Gemini Live streaming, continuous wake word or hands-free voice loop.
+- On app launch, after the first-time Android microphone permission and initial
+  API key import, JARVIS greets the user using Android Turkish TTS and starts
+  best-effort recognition. No talk/mute/stop/test buttons are shown.
+- Saying exactly **"sus"** or **"Jarvis sus"** immediately disables spoken
+  replies and stops current TTS when the speech engine recognizes it.
+- Saying exactly **"konuş"** or **"Jarvis konuş"** re-enables spoken replies,
+  responds "Dinliyorum", and keeps recognizing. Voice command recognition
+  remains active while muted.
+- Other finished recognized utterances are sent as text to Gemini REST; Gemini
+  answers are read aloud using Android TextToSpeech when available.
+- Recognition is **foreground-only**, explicit Android RECORD_AUDIO permission
+  is required, microphone status is shown prominently, and the microphone
+  closes when the user exits the app or the activity stops.
+- Android SpeechRecognizer is not designed for sustained, continuous speech
+  recognition. This version restarts short 20-second sessions while visible
+  and stops retrying after repeated service errors. Therefore it cannot
+  guarantee true always-on, zero-gap wake-word recognition, especially on
+  Android 11 projectors with limited microphone/service support.
+- Android speech recognition may send audio to its own remote provider. This
+  app sends only transcribed text to Gemini REST. No app-side recording files,
+  background service, wake word engine, or Gemini Live audio streaming.
+- When the assistant is talking, the recognizer filters non-command audio
+  to avoid its own speech triggering an infinite conversation. Exact "sus"
+  commands may still be affected by speaker echo, device drivers, and OS
+  recognition limits. Headphones or echo cancellation may improve this.
+- Hardware prerequisites: microphone (built-in or compatible USB/Bluetooth),
+  working Android speech recognition service and Turkish TTS. If missing,
+  typed Enter-to-send fallback remains available; buttons are not required.
+- Updating a debug APK may fail because debug build signing keys may differ
+  across build environments. If Android reports an incompatible signature,
+  uninstall the old test APK, install v0.4, and re-import the existing USB
+  `jarvis-gemini-key.json`. It has no vault password.
 
 ## Security
 **The USB JSON contains the API key in PLAINTEXT.** Anybody who copies it
