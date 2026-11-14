@@ -56,10 +56,10 @@ class UpdaterTests(unittest.TestCase):
         real_git = u._git
         def local_fetch(root, *args):
             if args[0] == 'fetch':
-                return ''  # target commit already exists in this isolated test repo
+                return real_git(root, 'fetch', '--no-tags', str(root), new)
             return real_git(root, *args)
         with patch.object(u, '_git', side_effect=local_fetch), patch.object(
-                u, '_get', side_effect=[json.dumps({'sha': new}).encode(), self.archive()]):
+                u, '_get', side_effect=AssertionError('Git update must not use the HTTP API')):
             self.assertTrue(u.update(self.root)[0])
         self.assertEqual(git('rev-parse', 'HEAD'), new)
         self.assertIn('jarvis-backup/', git('branch', '--list'))

@@ -8,10 +8,12 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import time
-from urllib.parse import quote
+from urllib.error import URLError
+from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 import zipfile
 
@@ -22,7 +24,7 @@ LIMIT = 150 * 1024 * 1024
 
 def _git(root, *args):
     p = subprocess.run(['git', '-C', str(root), *args], capture_output=True,
-                       text=True, timeout=180, creationflags=0x08000000 if os.name == 'nt' else 0)
+                       text=True, encoding='utf-8', errors='replace', timeout=180, creationflags=0x08000000 if os.name == 'nt' else 0)
     if p.returncode:
         raise RuntimeError(p.stderr.strip() or 'Git işlemi başarısız.')
     return p.stdout.strip()
@@ -30,8 +32,17 @@ def _git(root, *args):
 
 def _get(url):
     req = Request(url, headers={'User-Agent': 'Jarvis-Updater', 'Accept': 'application/vnd.github+json'})
-    with urlopen(req, timeout=45) as response:
-        data = response.read(LIMIT + 1)
+    try:
+        with urlopen(req, timeout=45) as response:
+            data = response.read(LIMIT + 1)
+    except URLError as exc:
+        if isinstance(exc.reason, socket.gaierror):
+            host = urlsplit(url).hostname
+            raise RuntimeError(
+                f"GitHub bağlantısı kurulamadı ({host}). "
+                "DNS veya proxy ayarlarını kontrol edip yeniden deneyin."
+            ) from exc
+        raise
     if len(data) > LIMIT:
         raise RuntimeError('Güncelleme indirme sınırını aşıyor.')
     return data
@@ -162,29 +173,38 @@ def update(root=ROOT, progress=lambda message: None):
             branch = state.get('branch', channel['branch'])
             current = state.get('sha')
         progress(f'GitHub kontrol ediliyor · {branch}')
-        commit = json.loads(_get(f'https://api.github.com/repos/{REPOSITORY}/commits/{quote(branch, safe="")}'))
-        sha = commit['sha']
+        if is_git:
+            # Fetch the exact tracked branch directly from the official repository.
+            _git(root, 'fetch', '--no-tags', f'https://github.com/{REPOSITORY}.git',
+                 f'refs/heads/{branch}')
+            sha = _git(root, 'rev-parse', 'FETCH_HEAD^{commit}')
+        else:
+            commit = json.loads(_get(f'https://api.github.com/repos/{REPOSITORY}/commits/{quote(branch, safe="")}'))
+            sha = commit['sha']
         if not re.fullmatch('[0-9a-f]{40}', sha):
             raise RuntimeError('Geçersiz GitHub sürüm kimliği.')
         if current == sha:
             return False, f'JARVIS güncel · {sha[:8]}'
-        progress('Yeni sürüm indiriliyor…')
-        files = _archive(_get(f'https://codeload.github.com/{REPOSITORY}/zip/{sha}'))
-        # Dependency replacement while Qt/audio DLLs are loaded is unsafe on Windows.
-        # Stop before touching source if this update needs a different environment.
-        old_req = (root / 'requirements.txt').read_text('utf-8').replace('\r\n', '\n')
-        new_req = files['requirements.txt'].decode('utf-8').replace('\r\n', '\n')
-        if old_req != new_req:
+
+        if is_git:
+            _git(root, 'merge-base', '--is-ancestor', current, sha)
+            new_req = _git(root, 'show', f'{sha}:requirements.txt')
+        else:
+            progress('Yeni sürüm indiriliyor…')
+            files = _archive(_get(f'https://codeload.github.com/{REPOSITORY}/zip/{sha}'))
+            new_req = files['requirements.txt'].decode('utf-8')
+        # Do not replace dependencies while Qt/audio DLLs are in use.
+        old_req = (root / 'requirements.txt').read_text('utf-8')
+        if old_req.replace('\r\n', '\n').rstrip() != new_req.replace('\r\n', '\n').rstrip():
             raise RuntimeError('Bu sürüm yeni bağımlılıklar gerektiriyor. JARVIS’i kapatıp yeni sürümün setup.py kurulumunu çalıştırın. Mevcut sürüm korunuyor.')
         progress('Yedek alınıyor ve güncelleme uygulanıyor…')
         if is_git:
-            _git(root, 'fetch', '--no-tags', f'https://github.com/{REPOSITORY}.git', sha)
-            _git(root, 'merge-base', '--is-ancestor', current, sha)
-            if _git(root, 'rev-parse', 'HEAD') != current or _git(root, 'status', '--porcelain', '--untracked-files=no'):
+            if (_git(root, 'symbolic-ref', '--short', 'HEAD') != branch
+                    or _git(root, 'rev-parse', 'HEAD') != current
+                    or _git(root, 'status', '--porcelain', '--untracked-files=no')):
                 raise RuntimeError('Kontrol sırasında yerel kod değişti; güncelleme durduruldu.')
-            # Keep a local recovery reference; ff-only refuses divergence and untracked conflicts.
             _git(root, 'branch', f'jarvis-backup/{time.time_ns()}', current)
-            _git(root, 'merge', '--ff-only', sha)
+            _git(root, 'merge', '--ff-only', '--no-overwrite-ignore', sha)
             if _git(root, 'rev-parse', 'HEAD') != sha:
                 raise RuntimeError('Güncelleme sonucu doğrulanamadı.')
         else:
