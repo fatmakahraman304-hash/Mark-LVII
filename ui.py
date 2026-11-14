@@ -337,6 +337,10 @@ class JarvisUI:
         self._win._video_open_sig.emit(str(source or ""), str(title or ""),
                                        bool(muted), str(audio_source or ""))
 
+    def show_map_places(self, places: list) -> None:
+        """Thread-safe delivery of geocoding results to the native street map."""
+        self._win._map_places_sig.emit(places)
+
     def show_image(self, path: str, title: str = "") -> None:
         """Thread-safe: put a still picture where the avatar normally is.
 

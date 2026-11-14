@@ -102,6 +102,7 @@ class MainWindow(QMainWindow):
     _state_sig      = pyqtSignal(str)
     _content_sig    = pyqtSignal(str, str)   # (title, text) — thread-safe content display
     _osiris_command_sig = pyqtSignal(object)
+    _map_places_sig = pyqtSignal(object)
     _osiris_sig     = pyqtSignal(str)        # map URL — worker thread -> Qt UI thread
     _codejob_sig    = pyqtSignal(object)     # dev_agent job state — live coding panel
     _reconfig_sig   = pyqtSignal()           # trigger setup overlay from any thread
@@ -404,6 +405,7 @@ class MainWindow(QMainWindow):
         self._state_sig.connect(self._apply_state)
         self._content_sig.connect(self._show_content)
         self._osiris_sig.connect(self._open_osiris)
+        self._map_places_sig.connect(self._show_map_places)
         self._osiris_command_sig.connect(self._control_osiris)
         self._codejob_sig.connect(self._show_code_job)
         self._reconfig_sig.connect(self._show_setup)
@@ -1860,6 +1862,23 @@ class MainWindow(QMainWindow):
         self._settings_page.show()
         self._settings_page.raise_()
 
+    def _show_map_places(self, places):
+        if not places:
+            return
+        chosen = places[0]
+        if len(places) > 1:
+            from PyQt6.QtWidgets import QInputDialog
+            labels = [f"{i+1}. {p['name']}" for i, p in enumerate(places)]
+            label, ok = QInputDialog.getItem(self, 'Haritada yer seç', 'Hangi yeri açalım?', labels, 0, False)
+            if not ok:
+                return
+            chosen = places[labels.index(label)]
+        self._explore_city_map()
+        self._large_city_map.zoom = chosen['zoom']
+        self._large_city_map.set_location(chosen['lat'], chosen['lon'])
+        self._map_place_label.setText(chosen['name'])
+        self._log.append_log('HARİTA: ' + chosen['name'])
+
     def _explore_city_map(self):
         from gui.location_map import CityMap
         if not hasattr(self, '_city_explorer'):
@@ -1868,7 +1887,10 @@ class MainWindow(QMainWindow):
             back = QPushButton('CORE’a dön')
             back.clicked.connect(lambda: self._hud_cam_stack.setCurrentIndex(0))
             layout.addWidget(back)
-            layout.addWidget(QLabel('Haritayı sürükleyerek gezin · Tekerlekle yakınlaştırın'))
+            self._map_place_label = QLabel('Haritayı sürükleyerek gezin · Tekerlekle yakınlaştırın')
+            self._map_place_label.setWordWrap(True)
+            self._map_place_label.setTextFormat(Qt.TextFormat.PlainText)
+            layout.addWidget(self._map_place_label)
             self._large_city_map = CityMap(self._location_panel.network)
             self._large_city_map.interactive = True
             self._large_city_map.setCursor(Qt.CursorShape.OpenHandCursor)
