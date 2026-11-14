@@ -4,10 +4,13 @@
 
 - **Sol üst:** Ayarlar (dişli), Kontroller (kaydırıcı), **GÜNCELLE** ve tam ekran.
 - **Sağ üst:** Saat ve tarih.
-- **Sol sütun:** COMMUNICATIONS (sohbet geçmişi), COMMAND (metin komutu,
-  dosya seçimi, mikrofon ve konuşmayı durdurma).
+- **Sol sütun (eski halinde):** SYSTEMS, NETWORK, STATUS, görevler ve konum bölümü.
 - **Orta:** JARVIS HUD; dinliyor/konuşuyor durumu burada kalır.
-- **Sağ sütun:** SYSTEMS, NETWORK, STATUS, görevler ve konum bölümü.
+- **Sağ sütun (eski halinde):** COMMUNICATIONS (sohbet geçmişi), COMMAND
+  (metin komutu, dosya seçimi, mikrofon ve konuşmayı durdurma).
+
+**Yalnızca üst kısımdaki düğmeler** sola taşındı. Yan sütunlar kullanıcı
+isteği doğrultusunda önceki konumlarına geri getirildi.
 
 Sol üstteki ikinci `LISTENING` etiketi kaldırıldı. Dinleme durumu,
 sistem mikrofon durumu ve orta HUD'da gösterilmeye devam eder. Menülerin
