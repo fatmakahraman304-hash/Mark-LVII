@@ -15,6 +15,31 @@ Android 8+ APK using the Gemini REST API. Does not need laptop, Ollama or Qwen.
    loads it on subsequent launches. Uninstall/data wipe requires re-import.
 5. Type questions or use optional Android speech recognition & TTS services.
 
+## Android voice: v0.3 push-to-talk (not Gemini Live)
+
+- **🎤 Konuş** explicitly requests Android RECORD_AUDIO permission and listens
+  for a **single** Turkish utterance via Android SpeechRecognizer. Partial
+  text is shown while listening; the final text is sent to Gemini REST.
+- **⏹ Dinlemeyi Durdur** cancels recognition. A 20-second timeout also closes
+  the microphone; navigating away closes it too. No continuous hot mic,
+  background listening, wake word or microphone file recording.
+- **🔊 SES TESTİ** speaks a short Turkish sentence through Android
+  TextToSpeech. **🔇 Sesi Kapat / 🔊 Sesi Aç** mutes or enables spoken replies.
+- Gemini response text is spoken through Android TTS when available.
+  This is NOT the upstream FatihMakes Gemini Live bidirectional audio model.
+- Android's speech recognition service may send your voice to its provider
+  over the Internet. The app itself sends only transcribed text to Gemini REST.
+- HY-320 and many TVs lack a microphone, Turkish TTS or Android speech
+  recognizer. In that case connect a compatible USB/Bluetooth microphone and
+  install/enable Android speech recognition and TTS if the device supports it.
+  If neither recognition service nor a supporting recognizer Activity exists,
+  this prototype cannot understand speech on that device.
+- If an older GitHub debug APK was installed, updating may fail because
+  separate CI runs use distinct debug signing keys. In that case uninstall
+  the older JARVIS Gemini test app, install the new v0.3 APK, and re-import
+  jarvis-gemini-key.json. Uninstall clears its device-local saved key.
+- No Gemini Live streaming, continuous wake word or hands-free voice loop.
+
 ## Security
 **The USB JSON contains the API key in PLAINTEXT.** Anybody who copies it
 can use Google Gemini quota and potentially cause charges. Keep your USB
