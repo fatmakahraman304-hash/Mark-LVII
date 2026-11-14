@@ -36,7 +36,7 @@ class PremiumHudTests(unittest.TestCase):
 
     def test_default_palette_is_readable(self):
         text = source("gui/theme.py")
-        values = dict(re.findall(r'^\s+([A-Z_]+)\s+=\s+"(#[0-9a-fA-F]{6})"',
+        values = dict(re.findall(r'^\s+([A-Z0-9_]+)\s+=\s+"(#[0-9a-fA-F]{6})"',
                                  text, flags=re.MULTILINE))
         for front, back in (("WHITE", "PANEL"), ("TEXT", "BG"),
                             ("TEXT_MED", "PANEL2")):
