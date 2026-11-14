@@ -1,0 +1,31 @@
+name: NEXUS TV Station safety tests
+on:
+  push:
+    branches:
+      - feature/jarvis-nexus-usb
+    paths:
+      - "portable/nexus-universal/tv-station/**"
+      - ".github/workflows/nexus-tv-station.yml"
+  pull_request:
+    paths:
+      - "portable/nexus-universal/tv-station/**"
+      - ".github/workflows/nexus-tv-station.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tv-station:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Compile USB TV application
+        run: python -m compileall -q portable/nexus-universal/tv-station
+      - name: Run offline localhost contract tests
+        working-directory: portable/nexus-universal/tv-station
+        run: python -m unittest discover -s . -p "test_tv_station.py" -v
