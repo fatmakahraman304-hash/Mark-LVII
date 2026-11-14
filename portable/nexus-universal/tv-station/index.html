@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>J.A.R.V.I.S. | TV Station</title>
+<link rel="stylesheet" href="/style.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>J.A.R.V.I.S.</h1><p class="sub">NEXUS TV STATION · YEREL YAPAY ZEKÂ</p></div>
+    <p id="status" role="status" aria-live="polite">Bağlantı kontrol ediliyor…</p>
+  </header>
+  <div class="board">
+    <section class="chat" aria-label="JARVIS sohbeti">
+      <div id="messages" aria-live="polite" aria-relevant="additions text">
+        <p class="bubble assistant">Merhaba! Bu istasyonda yerel Qwen3 8B ile konuşabilirsin. Gerçek cihaz kontrolü, mikrofon ve kalıcı hafıza henüz yok.</p>
+      </div>
+      <form id="chat-form">
+        <label for="prompt">JARVIS'e yaz</label>
+        <textarea id="prompt" maxlength="2000" rows="2" placeholder="Bir soru yaz…" required></textarea>
+        <div class="actions">
+          <button type="submit" id="send" disabled>Gönder</button>
+          <button type="button" id="clear">Sohbeti temizle</button>
+        </div>
+      </form>
+    </section>
+    <aside aria-label="İstasyon durumu">
+      <h2>İstasyon</h2>
+      <p>Model: <strong>qwen3:8b</strong></p>
+      <p id="model-status">Model kontrol ediliyor…</p>
+      <p class="note">Laptop gerekli değil; fakat bu ekranın açık olduğu mini bilgisayarda Ollama ve model kurulu olmalı.</p>
+      <p class="note">HDMI bağlantılı televizyonda görüntülenir. USB bellek tek başına yapay zekâ çalıştırmaz.</p>
+      <button id="refresh" type="button">Yeniden kontrol et</button>
+    </aside>
+  </div>
+  <footer>Yalnızca bu bilgisayar · Ücretli bulut API'si yok · Mesajlar dosyaya kaydedilmez · TV kumandası için büyük düğmeler</footer>
+</main>
+</body>
+</html>
