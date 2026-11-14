@@ -58,9 +58,13 @@ if QWebEnginePage is not None:
 
 class OsirisWindow(QMainWindow):
     result = pyqtSignal(object)
+    back_requested = pyqtSignal()
 
-    def __init__(self, parent=None):
-        super().__init__(parent, Qt.WindowType.Window)
+    def __init__(self, parent=None, embedded=False):
+        super().__init__(parent, Qt.WindowType.Widget if embedded else Qt.WindowType.Window)
+        if embedded:
+            self.setWindowFlags(Qt.WindowType.Widget)
+        self._embedded = embedded
         self.setWindowTitle("JARVIS — OSIRIS DÜNYA KOMUTA MERKEZİ")
         self.resize(1180, 760)
         self._url = ""
@@ -79,7 +83,8 @@ class OsirisWindow(QMainWindow):
         header = QHBoxLayout()
         header.addWidget(QLabel("OSIRIS — Dünya Komuta Merkezi"))
         header.addStretch()
-        for text, slot in (("Tarayıcıda aç", self._open_external), ("Kapat", self.hide)):
+        actions = (("CORE’a dön", self.back_requested.emit),) if embedded else (("Tarayıcıda aç", self._open_external), ("Kapat", self.hide))
+        for text, slot in actions:
             button = QPushButton(text)
             button.clicked.connect(slot)
             header.addWidget(button)
@@ -152,6 +157,9 @@ class OsirisWindow(QMainWindow):
             return False
         if self._view is None:
             self._url = address
+            if self._embedded:
+                self._status.setText("Harita için PyQt6-WebEngine kurulmalı. JARVIS kurulumunu yeniden çalıştırın.")
+                return True
             accepted = QDesktopServices.openUrl(QUrl(address))
             self._status.setText("Tarayıcı açma isteği gönderildi." if accepted else "Tarayıcı açılamadı.")
             return bool(accepted)

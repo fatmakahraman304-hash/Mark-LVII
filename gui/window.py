@@ -450,12 +450,12 @@ class MainWindow(QMainWindow):
         """Qt-thread slot: keep a single OSIRIS window and reuse it for commands."""
         from gui.osiris_window import OsirisWindow
         if self._osiris_window is None:
-            self._osiris_window = OsirisWindow(self)
+            self._osiris_window = OsirisWindow(self._hud_cam_stack, embedded=True)
+            self._hud_cam_stack.addWidget(self._osiris_window)
+            self._osiris_window.back_requested.connect(lambda: self._hud_cam_stack.setCurrentIndex(0))
             self._osiris_window.result.connect(self._osiris_result)
         if self._osiris_window.navigate(url):
-            self._osiris_window.show()
-            self._osiris_window.raise_()
-            self._osiris_window.activateWindow()
+            self._hud_cam_stack.setCurrentWidget(self._osiris_window)
 
     def _open_default_osiris(self) -> None:
         from plugins.osiris_world import build_url, DEFAULT_LAYERS

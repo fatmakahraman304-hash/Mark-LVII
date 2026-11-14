@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PyQt6.QtCore import QCoreApplication, Qt
 QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QStackedWidget, QWidget
 from PyQt6.QtTest import QTest
 from gui.osiris_window import OsirisWindow, QWebEngineView, _allowed_url
 
@@ -67,7 +67,17 @@ class QtBridgeTests(unittest.TestCase):
         self.assertTrue(condition())
 
     def test_same_document_commands_and_results(self):
-        win = OsirisWindow()
+        stack = QStackedWidget()
+        core = QWidget()
+        stack.addWidget(core)
+        win = OsirisWindow(stack, embedded=True)
+        stack.addWidget(win)
+        stack.setCurrentWidget(win)
+        self.assertFalse(win.isWindow())
+        win.back_requested.connect(lambda: stack.setCurrentWidget(core))
+        win.back_requested.emit()
+        self.assertIs(stack.currentWidget(), core)
+        stack.setCurrentWidget(win)
         self.addCleanup(win.close)
         results, loads = [], []
         win.result.connect(results.append)
