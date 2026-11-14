@@ -6,7 +6,7 @@ import math
 import time
 
 from PyQt6.QtCore import QPointF, QRectF, QStandardPaths, Qt, QTimer, QUrl, pyqtSignal
-from PyQt6.QtGui import QColor, QPainter, QPen, QPixmap
+from PyQt6.QtGui import QColor, QPainter, QPen, QPixmap, QPainterPath
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkDiskCache, QNetworkReply, QNetworkRequest
 from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
@@ -45,6 +45,7 @@ class CityMap(QWidget):
         super().__init__(parent)
         self.network = network
         self.center = None
+        self.route_points = []
         self.zoom = 11
         self.tiles = {}
         self.pending = set()
@@ -79,6 +80,19 @@ class CityMap(QWidget):
         self.update()
         self._reload.start(120)
         event.accept()
+
+    def set_route(self, points):
+        self.route_points = points
+        # Fit the entire polyline rather than zooming into only its endpoints.
+        unit = [tile_position(lat, lon, 0) for lon, lat in points]
+        xs, ys = [p[0] for p in unit], [p[1] for p in unit]
+        span_x, span_y = max(xs)-min(xs), max(ys)-min(ys)
+        available = min(max(1,self.width()-80)/(256*max(span_x,1e-8)), max(1,self.height()-80)/(256*max(span_y,1e-8)))
+        self.zoom = max(2, min(16, int(math.floor(math.log2(available)))))
+        n=2**self.zoom
+        self.center=((min(xs)+max(xs))/2*n,(min(ys)+max(ys))/2*n)
+        self.load_tiles()
+        self.update()
 
     def set_location(self, lat, lon):
         self.center = tile_position(lat, lon, self.zoom)
@@ -148,6 +162,26 @@ class CityMap(QWidget):
             p.setFont(px_font(11))
             message = "Konum bekleniyor" if self.center is None else "Harita yükleniyor…" if self.pending else "Harita yüklenemedi"
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, message)
+        if self.route_points and self.center:
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+            path = QPainterPath()
+            screen_points = []
+            for lon, lat in self.route_points:
+                x,y=tile_position(lat,lon,self.zoom)
+                point=QPointF((x-self.center[0])*256+self.width()/2,(y-self.center[1])*256+self.height()/2)
+                screen_points.append(point)
+                if len(screen_points)==1: path.moveTo(point)
+                else: path.lineTo(point)
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.setPen(QPen(QColor(C.DARK), 7))
+            p.drawPath(path)
+            p.setPen(QPen(QColor(C.PRI), 4))
+            p.drawPath(path)
+            for point, label in [(screen_points[0], 'A'), (screen_points[-1], 'B')]:
+                p.setBrush(QColor(C.DARK))
+                p.drawEllipse(point, 12, 12)
+                p.setFont(px_font(12))
+                p.drawText(QRectF(point.x()-12,point.y()-12,24,24),Qt.AlignmentFlag.AlignCenter,label)
         p.end()
 
 

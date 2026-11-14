@@ -102,6 +102,8 @@ class MainWindow(QMainWindow):
     _state_sig      = pyqtSignal(str)
     _content_sig    = pyqtSignal(str, str)   # (title, text) — thread-safe content display
     _osiris_command_sig = pyqtSignal(object)
+    _route_choices_sig = pyqtSignal(object)
+    _route_result_sig = pyqtSignal(object)
     _map_places_sig = pyqtSignal(object)
     _osiris_sig     = pyqtSignal(str)        # map URL — worker thread -> Qt UI thread
     _codejob_sig    = pyqtSignal(object)     # dev_agent job state — live coding panel
@@ -406,6 +408,8 @@ class MainWindow(QMainWindow):
         self._content_sig.connect(self._show_content)
         self._osiris_sig.connect(self._open_osiris)
         self._map_places_sig.connect(self._show_map_places)
+        self._route_choices_sig.connect(self._choose_route)
+        self._route_result_sig.connect(self._show_route)
         self._osiris_command_sig.connect(self._control_osiris)
         self._codejob_sig.connect(self._show_code_job)
         self._reconfig_sig.connect(self._show_setup)
@@ -1864,6 +1868,35 @@ class MainWindow(QMainWindow):
         self._settings_page.show()
         self._settings_page.raise_()
 
+    def _choose_route(self, choices):
+        from PyQt6.QtWidgets import QInputDialog
+        selected = []
+        for key, title in [('start', 'Başlangıç'), ('end', 'Varış')]:
+            places = choices[key]
+            index = 0
+            if len(places) > 1:
+                labels = [f"{i+1}. {p['name']}" for i,p in enumerate(places)]
+                label, ok = QInputDialog.getItem(self, title, 'Yeri seçin', labels, 0, False)
+                if not ok:
+                    return
+                index = labels.index(label)
+            selected.append(places[index])
+        def work():
+            from plugins.map_route import route
+            try:
+                self._route_result_sig.emit(route(*selected))
+            except Exception:
+                self._route_result_sig.emit({'error':'Rota alınamadı. Bağlantıyı ve adresleri kontrol edin.'})
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_route(self, result):
+        if 'error' in result:
+            self._log.append_log('ROTA: ' + result['error'])
+            return
+        self._explore_city_map()
+        self._large_city_map.set_route(result['points'])
+        self._map_place_label.setText(f"{result['title']}\n{result['distance']/1000:.1f} km · Yaklaşık {result['duration']/60:.0f} dakika · Araç rotası, canlı trafik yok · OSRM")
+
     def _show_map_places(self, places):
         if not places:
             return
@@ -1899,6 +1932,7 @@ class MainWindow(QMainWindow):
             layout.addWidget(self._large_city_map, 1)
             layout.addWidget(QLabel('© OpenStreetMap contributors · Konum IP üzerinden yaklaşıktır'))
             self._hud_cam_stack.addWidget(self._city_explorer)
+        self._large_city_map.route_points = []
         small = self._location_panel.map
         self._large_city_map.zoom = small.zoom
         self._large_city_map.center = small.center or (2 ** small.zoom / 2, 2 ** small.zoom / 2)
