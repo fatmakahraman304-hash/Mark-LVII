@@ -22,32 +22,30 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Portable encrypted-key Gemini UI for Android 8+ / Android TV.
+ * Gemini UI for Android 8+ / Android TV, with no vault password prompt.
+ * Import a plain-text API key file once per Android device; it is then kept
+ * encrypted at rest in Android Keystore and auto-unlocked on future launches.
  * No Ollama, laptop, Python or USB autorun.
- * Encrypted vault may be imported once on EACH device and later unlocked.
  */
 public final class MainActivity extends Activity {
-    private static final int OPEN_VAULT = 110;
+    private static final int OPEN_KEY_FILE = 110;
     private static final int VOICE_INPUT = 120;
-    private static final String PREFS = "private_nexus_vault";
     private static final int BLUE = Color.rgb(120, 220, 255);
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final JSONArray history = new JSONArray();
     private TextView status, transcript;
-    private EditText passphrase, prompt;
+    private EditText prompt;
     private Button send;
     private Spinner model;
     private TextToSpeech tts;
     private volatile boolean speakReady = false;
     private boolean busy = false;
     private String apiKey; // RAM-only; cleared when Activity dies
-    private String encryptedVault; // AES-GCM ciphertext, safe to retain on device
 
     private TextView text(String label, int size, int color) {
         TextView t = new TextView(this);
@@ -85,7 +83,8 @@ public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
-        encryptedVault = getSharedPreferences(PREFS, MODE_PRIVATE).getString("vault", null);
+        try { apiKey = DeviceKeyStore.load(this); }
+        catch (Exception ignored) { apiKey = null; /* request re-import */ }
         ScrollView container = new ScrollView(this);
         container.setFillViewport(true);
         container.setBackgroundColor(Color.rgb(6, 19, 31));
@@ -97,28 +96,22 @@ public final class MainActivity extends Activity {
 
         root.addView(text("J.A.R.V.I.S.", 36, BLUE));
         root.addView(text("GEMINI USB · Android TV / Projeksiyon", 17, Color.LTGRAY));
-        status = text(encryptedVault == null ?
-                "Önce USB'den şifreli anahtar dosyanı seç." :
-                "Anahtar kasası kayıtlı. Şifrenle kilidini aç.", 17, Color.rgb(175, 226, 201));
+        status = text(apiKey == null ?
+                "USB'den Gemini anahtar dosyanı içe aktar (şifre yok)." :
+                "Gemini anahtarı bu Android cihazda kayıtlı, hazır.", 17, Color.rgb(175, 226, 201));
         root.addView(status);
 
-        Button choose = button("1 · USB'den anahtar dosyasını seç");
+        Button choose = button("USB'den Gemini anahtarını seç (şifresiz)");
         root.addView(choose);
         choose.setOnClickListener(v -> {
             Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             picker.addCategory(Intent.CATEGORY_OPENABLE);
             picker.setType("*/*");
-            try { startActivityForResult(picker, OPEN_VAULT); }
+            try { startActivityForResult(picker, OPEN_KEY_FILE); }
             catch (ActivityNotFoundException ex) {
                 setStatus("Bu Android cihazda dosya seçici yok. Dosyayı cihazın İndirilenler klasörüne taşıyıp dosya yöneticisini kontrol et.");
             }
         });
-
-        passphrase = input("USB kasası şifren", true);
-        root.addView(passphrase);
-        Button unlock = button("2 · Anahtarın kilidini aç");
-        root.addView(unlock);
-        unlock.setOnClickListener(v -> unlockVault());
 
         root.addView(text("Gemini modeli (FatihMakes'in metin Flash ailesi)", 16, Color.LTGRAY));
         model = new Spinner(this);
@@ -137,7 +130,7 @@ public final class MainActivity extends Activity {
         prompt = input("JARVIS'e mesajını yaz", false);
         root.addView(prompt);
         send = button("Gönder");
-        send.setEnabled(false);
+        send.setEnabled(apiKey != null);
         root.addView(send);
         send.setOnClickListener(v -> sendMessage());
 
@@ -152,7 +145,9 @@ public final class MainActivity extends Activity {
             transcript.setText("JARVIS: Sohbet temizlendi.\n");
         });
 
-        root.addView(text("Sesle giriş için cihazda konuşma tanıma servisi ve mikrofon gerekir. "
+        root.addView(text("USB anahtar dosyası ŞİFRESİZDİR: USB'yi bulan kişi Gemini anahtarını kullanabilir. "
+                + "İçe aktarıldıktan sonra Android uygulaması anahtarı kendi Keystore şifrelemesiyle saklar. "
+                + "Sesle giriş için cihazda konuşma tanıma servisi ve mikrofon gerekir. "
                 + "Yanıtı sesli okuma için Android TTS gerekir. Bunlar tüm TV'lerde yoktur. "
                 + "Her Gemini isteği Google'a internet üzerinden gider; anahtar kotanı/bütçeni kontrol et.",
                 14, Color.LTGRAY));
@@ -167,39 +162,6 @@ public final class MainActivity extends Activity {
 
     private void setStatus(String message) { status.setText(message); }
 
-    private void unlockVault() {
-        if (busy) return;
-        if (encryptedVault == null) {
-            setStatus("Önce USB'den jarvis-key.enc.json dosyasını seç.");
-            return;
-        }
-        char[] pw = passphrase.getText().toString().toCharArray();
-        passphrase.setText("");
-        busy = true;
-        setStatus("Anahtar kasası çözülüyor…");
-        final String savedVault = encryptedVault;
-        worker.execute(() -> {
-            try {
-                String unlocked = VaultCodec.unlock(savedVault, pw);
-                runOnUiThread(() -> {
-                    apiKey = unlocked;
-                    setStatus("Gemini anahtarı açıldı. Mesaj gönderebilirsin.");
-                    send.setEnabled(true);
-                    busy = false;
-                });
-            } catch (Exception ex) {
-                runOnUiThread(() -> {
-                    apiKey = null;
-                    send.setEnabled(false);
-                    busy = false;
-                    setStatus("Kasa açılamadı: dosya veya şifre hatalı.");
-                });
-            } finally {
-                Arrays.fill(pw, '\0');
-            }
-        });
-    }
-
     private static String readBounded(InputStream input, int maxBytes) throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         byte[] buffer = new byte[2048];
@@ -213,22 +175,23 @@ public final class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
-        if (request == OPEN_VAULT && result == RESULT_OK && data != null && data.getData() != null) {
+        if (request == OPEN_KEY_FILE && result == RESULT_OK && data != null && data.getData() != null) {
             try (InputStream stream = getContentResolver().openInputStream(data.getData())) {
-                if (stream == null) throw new Exception("No file stream");
-                String file = readBounded(stream, 8192);
+                if (stream == null) throw new Exception("Missing file stream");
+                String file = readBounded(stream, 4096);
                 JSONObject obj = new JSONObject(file);
-                if (obj.length() != 6 || obj.optInt("version") != 1
-                        || !"PBKDF2-SHA256".equals(obj.optString("kdf"))) {
-                    throw new Exception("Unsupported vault file");
+                String imported = obj.optString("api_key", "");
+                if (obj.length() != 3 || obj.optInt("version") != 2
+                        || !"gemini".equals(obj.optString("provider"))
+                        || !imported.matches("[\\x21-\\x7e]{20,220}")) {
+                    throw new Exception("Unsupported API key file");
                 }
-                encryptedVault = file;
-                apiKey = null;
-                send.setEnabled(false);
-                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString("vault", file).apply();
-                setStatus("Şifreli USB anahtarı içe aktarıldı. Şimdi kasanın şifresini gir.");
+                DeviceKeyStore.save(this, imported);
+                apiKey = imported;
+                send.setEnabled(true);
+                setStatus("Gemini anahtarı kaydedildi. Bu cihazda yeniden şifre girmen gerekmeyecek.");
             } catch (Exception ex) {
-                setStatus("Dosya okunamadı. KEY-SETUP.html ile oluşturulan şifreli JSON'u seç.");
+                setStatus("Anahtar içe aktarılamadı. Yeni KEY-SETUP.html ile şifresiz jarvis-gemini-key.json oluştur.");
             }
         } else if (request == VOICE_INPUT && result == RESULT_OK && data != null) {
             ArrayList<String> words = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
@@ -240,7 +203,7 @@ public final class MainActivity extends Activity {
     }
 
     private void startVoice() {
-        if (apiKey == null) { setStatus("Önce kasanın şifresini gir."); return; }
+        if (apiKey == null) { setStatus("Önce Gemini anahtarını USB dosyasından içe aktar."); return; }
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "tr-TR");
@@ -258,7 +221,7 @@ public final class MainActivity extends Activity {
     }
 
     private void sendMessage() {
-        if (busy || apiKey == null) { setStatus("Gemini anahtarını aç veya mevcut yanıtı bekle."); return; }
+        if (busy || apiKey == null) { setStatus("Gemini anahtarını içe aktar veya mevcut yanıtı bekle."); return; }
         String question = prompt.getText().toString().trim();
         if (question.isEmpty() || question.length() > 2000) {
             setStatus("Mesaj 1-2000 karakter olmalı.");
