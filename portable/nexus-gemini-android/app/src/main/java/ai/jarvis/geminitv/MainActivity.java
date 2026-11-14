@@ -50,6 +50,7 @@ public final class MainActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final JSONArray history = new JSONArray();
+    private boolean listening = false;
     private final Runnable microphoneTimeout = () -> {
         if (listening) {
             releaseRecognizer();
@@ -68,7 +69,6 @@ public final class MainActivity extends Activity {
     private String mostRecentAnswer = "";
     private boolean foreground = false;
     private boolean destroyed = false;
-    private boolean listening = false;
     private boolean speaking = false;
     private boolean busy = false;
     private boolean voiceEnabled = true;
