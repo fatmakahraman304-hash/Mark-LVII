@@ -25,6 +25,8 @@ Do not expose Ollama on a LAN or disable authentication/TLS to make it work.
 
 TV and Android projectors are used as HDMI displays only, so Android APK/USB
 app restrictions do not apply to the TV Station path. HDMI inputs vary by device.
+A wireless keyboard, mouse or air mouse attached to the mini PC is generally
+needed; the TV's own remote does not automatically control the mini PC.
 
 ## HY-320 Android 11 / 1 GB RAM
 - Qwen3 8B **cannot realistically run on the projector itself**.
