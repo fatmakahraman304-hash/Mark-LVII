@@ -113,6 +113,7 @@ def run(parameters, player=None, session_memory=None):
             return "Görsel göstermek için JARVIS arayüzü açık olmalı."
         if not _lock.acquire(blocking=False):
             return "Önceki görsel hâlâ hazırlanıyor."
+        started = False
         try:
             source = _selected_source(params, player) if mode == "edit" else None
             backend, message = _backend(provider)
@@ -123,9 +124,10 @@ def run(parameters, player=None, session_memory=None):
                 daemon=True, name="jarvis-image"
             )
             worker.start()
+            started = True
         finally:
-            # A worker holds the lock until it completes; no worker = unlock now.
-            if "worker" not in locals() or not worker.is_alive():
+            # Once started, only the worker releases the lock.
+            if not started:
                 _lock.release()
         return (
             f"Görsel {('yerel ComfyUI' if backend == 'local' else 'Gemini API')} "
