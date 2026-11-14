@@ -1,0 +1,32 @@
+name: Local image and paid API safety
+
+on:
+  push:
+    branches:
+      - feature/free-local-images
+  pull_request:
+    paths:
+      - "core/local_image.py"
+      - "plugins/generate_image.py"
+      - "tests/test_local_image.py"
+      - ".github/workflows/local-image.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Syntax
+        run: python -m py_compile core/local_image.py plugins/generate_image.py tests/test_local_image.py
+      - name: Free-only local image regression (network mocked)
+        run: python -m unittest discover -s tests -p test_local_image.py -v
