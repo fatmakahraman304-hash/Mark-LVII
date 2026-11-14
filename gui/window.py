@@ -105,6 +105,7 @@ class MainWindow(QMainWindow):
     _route_choices_sig = pyqtSignal(object)
     _route_result_sig = pyqtSignal(object)
     _map_places_sig = pyqtSignal(object)
+    _social_sig = pyqtSignal(str)
     _osiris_sig     = pyqtSignal(str)        # map URL — worker thread -> Qt UI thread
     _codejob_sig    = pyqtSignal(object)     # dev_agent job state — live coding panel
     _reconfig_sig   = pyqtSignal()           # trigger setup overlay from any thread
@@ -407,6 +408,7 @@ class MainWindow(QMainWindow):
         self._state_sig.connect(self._apply_state)
         self._content_sig.connect(self._show_content)
         self._osiris_sig.connect(self._open_osiris)
+        self._social_sig.connect(self._open_social)
         self._map_places_sig.connect(self._show_map_places)
         self._route_choices_sig.connect(self._choose_route)
         self._route_result_sig.connect(self._show_route)
@@ -453,6 +455,21 @@ class MainWindow(QMainWindow):
         sc_intr.activated.connect(self._do_interrupt)
         sc_world = QShortcut(QKeySequence("Ctrl+Shift+O"), self)
         sc_world.activated.connect(self._open_default_osiris)
+
+    def _open_social(self, site: str) -> None:
+        from core.social_sites import SITES
+
+        if site not in SITES:
+            return
+        from gui.social_panel import SocialPanel
+
+        panel = getattr(self, "_social_panel", None)
+        if panel is None:
+            panel = self._social_panel = SocialPanel(self._hud_cam_stack)
+            panel.back_requested.connect(lambda: self._hud_cam_stack.setCurrentIndex(0))
+            self._hud_cam_stack.addWidget(panel)
+        self._hud_cam_stack.setCurrentWidget(panel)
+        panel.open_site(site)
 
     def _open_osiris(self, url: str) -> None:
         """Qt-thread slot: keep a single OSIRIS window and reuse it for commands."""
@@ -1344,6 +1361,20 @@ class MainWindow(QMainWindow):
         self._fs_btn.setToolTip("Fullscreen  [F11]")
         self._fs_btn.clicked.connect(self._toggle_fullscreen)
         left_lay.addWidget(self._fs_btn)
+        from PyQt6.QtWidgets import QMenu
+        from core.social_sites import SITES
+
+        social = QPushButton("SOSYAL")
+        social.setMinimumHeight(36)
+        social.setFont(px_font(12, QFont.Weight.DemiBold))
+        social.setStyleSheet(btn_css("dim", align="center"))
+        menu = QMenu(social)
+        for key, (label, _, _) in SITES.items():
+            menu.addAction(label).triggered.connect(
+                lambda checked=False, site=key: self._open_social(site)
+            )
+        social.setMenu(menu)
+        left_lay.addWidget(social)
         left_lay.addStretch()
         return w
 
@@ -3122,6 +3153,12 @@ class MainWindow(QMainWindow):
         if not txt: return
         self._input.clear()
         self._log.append_log(f"You: {txt}")
+        from core.social_sites import site_for_command
+
+        site = site_for_command(txt)
+        if site:
+            self._open_social(site)
+            return
         if self.on_text_command:
             threading.Thread(target=self.on_text_command, args=(txt,), daemon=True).start()
 

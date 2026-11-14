@@ -271,6 +271,10 @@ class JarvisUI:
         """Thread-safe: display content in the panel below the HUD."""
         self._win._content_sig.emit(title[:48], text[:4000])
 
+    def show_social(self, site: str) -> None:
+        """Queue an official social website in the center panel."""
+        self._win._social_sig.emit(site)
+
     def show_osiris(self, url: str) -> None:
         """Thread-safe: queue an OSIRIS map URL to the main Qt GUI thread.
 

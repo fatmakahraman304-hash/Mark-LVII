@@ -293,6 +293,14 @@ def open_app(parameters=None, response=None, player=None,
     if not spoken:
         return outcome.failed("open_app", "no application name was given")
 
+    from core.social_sites import site_for_name
+
+    site = site_for_name(spoken)
+    show_social = getattr(player, "show_social", None)
+    if site and callable(show_social):
+        show_social(site)
+        return outcome.started("open_app", app=spoken)
+
     if _SYSTEM not in _LAUNCHERS:
         return outcome.failed(
             "open_app", f"this operating system ({_SYSTEM}) is not supported",
