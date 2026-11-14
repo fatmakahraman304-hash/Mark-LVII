@@ -21,3 +21,17 @@ class TestOutput(unittest.TestCase):
                 g.command(["python", "-m", "unittest"], test_name="test_example.py")
         self.assertIn("AssertionError: expected result", str(error.exception))
         self.assertEqual(run.call_args.kwargs["env"]["QT_QPA_PLATFORM"], "offscreen")
+
+
+class LocalDevelopmentCommands(unittest.TestCase):
+    def test_explicit_commands_work_with_turkish_caps_and_punctuation(self):
+        self.assertEqual(g.local_command_mode("  GİTHUB geliştirme alanını main ile eşitle. "), "sync")
+        self.assertEqual(g.local_command_mode("/git test"), "test")
+        self.assertEqual(
+            g.local_command_mode("GitHub geliştirme alanındaki testleri çalıştır ve sonucu göster"),
+            "test",
+        )
+
+    def test_other_requests_are_not_local_commands(self):
+        self.assertIsNone(g.local_command_mode("GitHub geliştirme alanını main ile eşitleme"))
+        self.assertIsNone(g.local_command_mode("/git publish"))

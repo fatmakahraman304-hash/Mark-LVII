@@ -1220,6 +1220,13 @@ class JarvisLive:
                 getattr(self._dashboard, "_bind_error", "") or "")
 
     def _on_text_command(self, text: str):
+        from plugins.github_develop import local_command_mode
+
+        mode = local_command_mode(text)
+        if mode:
+            result = self._plugin_registry.run("github_develop", {"mode": mode}, player=self.ui)
+            self.ui.write_log(f"SYS: {result}")
+            return
         if not self._loop or not self.session:
             return
         # Respect wake-word sleep: a typed command must not be answered while

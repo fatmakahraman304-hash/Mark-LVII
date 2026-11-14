@@ -19,6 +19,21 @@ PLUGIN = {'name':'github_develop','description':
         'files':{'type':'ARRAY','items':{'type':'STRING'},'description':'Exact changed source/test paths to include; never secrets or personal config.'}},'required':['mode']}}
 
 
+_LOCAL_COMMANDS = {
+    "/git sync": "sync",
+    "/git test": "test",
+    "github geliştirme alanını main ile eşitle": "sync",
+    "github geliştirme alanındaki testleri çalıştır": "test",
+    "github geliştirme alanındaki testleri çalıştır ve sonucu göster": "test",
+}
+
+
+def local_command_mode(text: str) -> str | None:
+    """Recognize explicit typed commands without interpreting free-form prose."""
+    normalized = " ".join(text.strip().replace("İ", "i").casefold().split())
+    return _LOCAL_COMMANDS.get(normalized.rstrip(".!"))
+
+
 class TestFailure(RuntimeError):
     """Test output safe to show locally, without losing the failing filename."""
 
